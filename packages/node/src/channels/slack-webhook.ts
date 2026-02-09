@@ -1,4 +1,4 @@
-import type { AlertChannel, AlertEvent } from "@steadwing/core";
+import type { AlertChannel, AlertEvent } from "@steadwing/openalerts-core";
 
 /**
  * Send alerts to Slack via incoming webhook URL.

@@ -1,12 +1,12 @@
-import type { SteadwingEvent } from "./types.js";
+import type { OpenAlertsEvent } from "./types.js";
 
-export type EventListener = (event: SteadwingEvent) => void;
+export type EventListener = (event: OpenAlertsEvent) => void;
 
 /**
- * Simple pub/sub event bus for SteadwingEvents.
+ * Simple pub/sub event bus for OpenAlertsEvents.
  * Replaces framework-specific event subscriptions (e.g., OpenClaw's onDiagnosticEvent).
  */
-export class SteadwingEventBus {
+export class OpenAlertsEventBus {
   private listeners = new Set<EventListener>();
 
   /** Subscribe to all events. Returns an unsubscribe function. */
@@ -16,12 +16,12 @@ export class SteadwingEventBus {
   }
 
   /** Emit an event to all listeners. Errors in listeners are caught and logged. */
-  emit(event: SteadwingEvent): void {
+  emit(event: OpenAlertsEvent): void {
     for (const listener of this.listeners) {
       try {
         listener(event);
       } catch (err) {
-        console.error("[steadwing] event listener error:", err);
+        console.error("[openalerts] event listener error:", err);
       }
     }
   }

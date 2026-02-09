@@ -3,7 +3,7 @@ import {
   type AlertEvent,
   type AlertRuleDefinition,
   type RuleContext,
-  type SteadwingEvent,
+  type OpenAlertsEvent,
   type WindowEntry,
 } from "./types.js";
 
@@ -56,7 +56,7 @@ const infraErrors: AlertRuleDefinition = {
   defaultCooldownMs: 15 * 60 * 1000,
   defaultThreshold: 3,
 
-  evaluate(event: SteadwingEvent, ctx): AlertEvent | null {
+  evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
     if (event.type !== "infra.error") return null;
     if (!isRuleEnabled(ctx, "infra-errors")) return null;
 
@@ -90,7 +90,7 @@ const llmErrors: AlertRuleDefinition = {
   defaultCooldownMs: 15 * 60 * 1000,
   defaultThreshold: 3,
 
-  evaluate(event: SteadwingEvent, ctx): AlertEvent | null {
+  evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
     if (event.type !== "llm.call") return null;
     if (!isRuleEnabled(ctx, "llm-errors")) return null;
 
@@ -130,7 +130,7 @@ const sessionStuck: AlertRuleDefinition = {
   defaultCooldownMs: 30 * 60 * 1000,
   defaultThreshold: 120_000, // 120 seconds
 
-  evaluate(event: SteadwingEvent, ctx): AlertEvent | null {
+  evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
     if (event.type !== "session.stuck") return null;
     if (!isRuleEnabled(ctx, "session-stuck")) return null;
 
@@ -164,7 +164,7 @@ const heartbeatFail: AlertRuleDefinition = {
   defaultCooldownMs: 30 * 60 * 1000,
   defaultThreshold: 3, // consecutive failures
 
-  evaluate(event: SteadwingEvent, ctx): AlertEvent | null {
+  evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
     if (event.type !== "infra.heartbeat") return null;
     if (!isRuleEnabled(ctx, "heartbeat-fail")) return null;
 
@@ -207,7 +207,7 @@ const queueDepth: AlertRuleDefinition = {
   defaultCooldownMs: 15 * 60 * 1000,
   defaultThreshold: 10,
 
-  evaluate(event: SteadwingEvent, ctx): AlertEvent | null {
+  evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
     // Fire on heartbeat (which carries queue depth) and dedicated queue_depth events
     if (event.type !== "infra.heartbeat" && event.type !== "infra.queue_depth") return null;
     if (!isRuleEnabled(ctx, "queue-depth")) return null;
@@ -242,7 +242,7 @@ const highErrorRate: AlertRuleDefinition = {
   defaultCooldownMs: 30 * 60 * 1000,
   defaultThreshold: 50, // percent
 
-  evaluate(event: SteadwingEvent, ctx): AlertEvent | null {
+  evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
     if (event.type !== "llm.call") return null;
     if (!isRuleEnabled(ctx, "high-error-rate")) return null;
 
@@ -281,7 +281,7 @@ const gatewayDown: AlertRuleDefinition = {
   defaultCooldownMs: 60 * 60 * 1000,
   defaultThreshold: 90_000, // 90 seconds
 
-  evaluate(event: SteadwingEvent, ctx): AlertEvent | null {
+  evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
     // This rule is called by the watchdog timer, not by events directly.
     if (event.type !== "watchdog.tick") return null;
     if (!isRuleEnabled(ctx, "gateway-down")) return null;

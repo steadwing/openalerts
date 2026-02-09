@@ -4,7 +4,7 @@ import {
   type AlertEvent,
   type EvaluatorState,
   type MonitorConfig,
-  type SteadwingEvent,
+  type OpenAlertsEvent,
   type StoredEvent,
 } from "./types.js";
 
@@ -58,7 +58,7 @@ export function warmFromHistory(
 export function processEvent(
   state: EvaluatorState,
   config: MonitorConfig,
-  event: SteadwingEvent,
+  event: OpenAlertsEvent,
 ): AlertEvent[] {
   const now = Date.now();
 

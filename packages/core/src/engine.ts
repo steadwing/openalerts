@@ -1,5 +1,5 @@
 import { AlertDispatcher } from "./alert-channel.js";
-import { SteadwingEventBus } from "./event-bus.js";
+import { OpenAlertsEventBus } from "./event-bus.js";
 import { createEvaluatorState, processEvent, processWatchdogTick, warmFromHistory } from "./evaluator.js";
 import { createPlatformSync, type PlatformSync } from "./platform.js";
 import { appendEvent, pruneLog, readAllEvents, readRecentEvents } from "./store.js";
@@ -8,40 +8,40 @@ import {
   type AlertEvent,
   type EvaluatorState,
   type MonitorConfig,
-  type SteadwingEvent,
-  type SteadwingInitOptions,
-  type SteadwingLogger,
+  type OpenAlertsEvent,
+  type OpenAlertsInitOptions,
+  type OpenAlertsLogger,
   type StoredEvent,
 } from "./types.js";
 
 /**
- * SteadwingEngine — central orchestrator for monitoring and alerting.
+ * OpenAlertsEngine — central orchestrator for monitoring and alerting.
  *
  * Framework-agnostic. Adapters (OpenClaw, Nanobot, LangChain, etc.)
- * translate their events into SteadwingEvent and feed them to `ingest()`.
+ * translate their events into OpenAlertsEvent and feed them to `ingest()`.
  */
-export class SteadwingEngine {
-  readonly bus: SteadwingEventBus;
+export class OpenAlertsEngine {
+  readonly bus: OpenAlertsEventBus;
   readonly state: EvaluatorState;
 
   private config: MonitorConfig;
   private stateDir: string;
   private dispatcher: AlertDispatcher;
   private platform: PlatformSync | null = null;
-  private logger: SteadwingLogger;
+  private logger: OpenAlertsLogger;
   private logPrefix: string;
 
   private watchdogTimer: ReturnType<typeof setInterval> | null = null;
   private pruneTimer: ReturnType<typeof setInterval> | null = null;
   private running = false;
 
-  constructor(options: SteadwingInitOptions) {
+  constructor(options: OpenAlertsInitOptions) {
     this.config = options.config;
     this.stateDir = options.stateDir;
     this.logger = options.logger ?? console;
-    this.logPrefix = options.logPrefix ?? "steadwing";
+    this.logPrefix = options.logPrefix ?? "openalerts";
 
-    this.bus = new SteadwingEventBus();
+    this.bus = new OpenAlertsEventBus();
     this.state = createEvaluatorState();
 
     this.dispatcher = new AlertDispatcher({
@@ -105,7 +105,7 @@ export class SteadwingEngine {
   }
 
   /** Ingest a universal event. Can be called directly or via the event bus. */
-  ingest(event: SteadwingEvent): void {
+  ingest(event: OpenAlertsEvent): void {
     this.bus.emit(event);
   }
 
@@ -150,7 +150,7 @@ export class SteadwingEngine {
 
   // ─── Internal ──────────────────────────────────────────────────────────────
 
-  private handleEvent(event: SteadwingEvent): void {
+  private handleEvent(event: OpenAlertsEvent): void {
     // Persist as diagnostic snapshot
     const snapshot: StoredEvent = {
       type: "diagnostic",

@@ -1,4 +1,4 @@
-import type { AlertChannel, AlertEvent } from "@steadwing/core";
+import type { AlertChannel, AlertEvent } from "@steadwing/openalerts-core";
 
 const SEVERITY_COLORS: Record<string, string> = {
   info: "\x1b[36m",    // cyan

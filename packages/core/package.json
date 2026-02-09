@@ -1,8 +1,8 @@
 {
-  "name": "@steadwing/core",
+  "name": "@steadwing/openalerts-core",
   "version": "0.1.0",
   "type": "module",
-  "description": "Steadwing monitoring core — rules, evaluator, store, engine. Zero external deps.",
+  "description": "OpenAlerts monitoring core — rules, evaluator, store, engine. Zero external deps.",
   "author": "Steadwing",
   "license": "MIT",
   "main": "src/index.ts",

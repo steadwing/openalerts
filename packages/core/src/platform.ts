@@ -1,4 +1,4 @@
-import { DEFAULTS, type SteadwingLogger, type StoredEvent } from "./types.js";
+import { DEFAULTS, type OpenAlertsLogger, type StoredEvent } from "./types.js";
 
 export type PlatformSync = {
   enqueue: (event: StoredEvent) => void;
@@ -9,17 +9,17 @@ export type PlatformSync = {
 
 /**
  * Create a platform sync instance that batches events and pushes them
- * to the Steadwing backend API. Only active when apiKey is provided.
+ * to the OpenAlerts backend API. Only active when apiKey is provided.
  */
 export function createPlatformSync(opts: {
   apiKey: string;
   baseUrl?: string;
-  logger: SteadwingLogger;
+  logger: OpenAlertsLogger;
   logPrefix?: string;
 }): PlatformSync {
   const { apiKey, logger } = opts;
-  const baseUrl = opts.baseUrl?.replace(/\/+$/, "") ?? "https://api.steadwing.dev";
-  const prefix = opts.logPrefix ?? "steadwing";
+  const baseUrl = opts.baseUrl?.replace(/\/+$/, "") ?? "https://api.openalerts.dev";
+  const prefix = opts.logPrefix ?? "openalerts";
 
   let batch: StoredEvent[] = [];
   let flushTimer: ReturnType<typeof setInterval> | null = null;
@@ -61,7 +61,7 @@ export function createPlatformSync(opts: {
 
         if (res.status === 401 || res.status === 403) {
           logger.warn(
-            `${prefix}: invalid API key (${res.status}). Platform sync disabled. Check your key at app.steadwing.dev.`,
+            `${prefix}: invalid API key (${res.status}). Platform sync disabled. Check your key at app.openalerts.dev.`,
           );
           disabled = true;
           connected = false;

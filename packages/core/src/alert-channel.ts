@@ -1,5 +1,5 @@
 import { formatAlertMessage } from "./formatter.js";
-import type { AlertChannel, AlertEvent, SteadwingLogger } from "./types.js";
+import type { AlertChannel, AlertEvent, OpenAlertsLogger } from "./types.js";
 
 /**
  * Dispatches alerts to all registered channels.
@@ -7,12 +7,12 @@ import type { AlertChannel, AlertEvent, SteadwingLogger } from "./types.js";
  */
 export class AlertDispatcher {
   private channels: AlertChannel[] = [];
-  private logger: SteadwingLogger;
+  private logger: OpenAlertsLogger;
   private diagnosisHint?: string;
 
   constructor(opts: {
     channels?: AlertChannel[];
-    logger?: SteadwingLogger;
+    logger?: OpenAlertsLogger;
     diagnosisHint?: string;
   }) {
     this.channels = opts.channels ?? [];
@@ -37,7 +37,7 @@ export class AlertDispatcher {
       try {
         await ch.send(alert, formatted);
       } catch (err) {
-        this.logger.error(`[steadwing] alert channel "${ch.name}" failed: ${String(err)}`);
+        this.logger.error(`[openalerts] alert channel "${ch.name}" failed: ${String(err)}`);
       }
     });
 

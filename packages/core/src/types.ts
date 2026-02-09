@@ -4,7 +4,7 @@ export type AlertSeverity = "info" | "warn" | "error" | "critical";
 
 // ─── Universal Event Types ──────────────────────────────────────────────────
 
-export type SteadwingEventType =
+export type OpenAlertsEventType =
   | "llm.call" | "llm.error" | "llm.token_usage"
   | "tool.call" | "tool.error"
   | "agent.start" | "agent.end" | "agent.error" | "agent.stuck"
@@ -12,8 +12,8 @@ export type SteadwingEventType =
   | "infra.error" | "infra.heartbeat" | "infra.queue_depth"
   | "custom" | "watchdog.tick";
 
-export type SteadwingEvent = {
-  type: SteadwingEventType;
+export type OpenAlertsEvent = {
+  type: OpenAlertsEventType;
   ts: number;
   severity?: AlertSeverity;
   channel?: string;
@@ -96,9 +96,9 @@ export type MonitorConfig = {
   rules?: Record<string, RuleOverride>;
 };
 
-// ─── Init Options (for SteadwingEngine) ─────────────────────────────────────
+// ─── Init Options (for OpenAlertsEngine) ─────────────────────────────────────
 
-export type SteadwingInitOptions = {
+export type OpenAlertsInitOptions = {
   /** Where to store JSONL event logs */
   stateDir: string;
   /** Monitor config (rules, cooldowns, etc.) */
@@ -106,14 +106,14 @@ export type SteadwingInitOptions = {
   /** Alert channels to send to */
   channels?: AlertChannel[];
   /** Logger (defaults to console) */
-  logger?: SteadwingLogger;
+  logger?: OpenAlertsLogger;
   /** Log prefix for messages */
   logPrefix?: string;
   /** Diagnosis hint shown in critical alerts (e.g., 'Run "openclaw doctor"') */
   diagnosisHint?: string;
 };
 
-export type SteadwingLogger = {
+export type OpenAlertsLogger = {
   info: (msg: string) => void;
   warn: (msg: string) => void;
   error: (msg: string) => void;
@@ -167,14 +167,14 @@ export type AlertRuleDefinition = {
   defaultCooldownMs: number;
   defaultThreshold: number;
   evaluate: (
-    event: SteadwingEvent,
+    event: OpenAlertsEvent,
     ctx: RuleContext,
   ) => AlertEvent | null;
 };
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-export const STORE_DIR_NAME = "steadwing";
+export const STORE_DIR_NAME = "openalerts";
 export const LOG_FILENAME = "events.jsonl";
 
 export const DEFAULTS = {

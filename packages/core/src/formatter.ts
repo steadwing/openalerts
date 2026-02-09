@@ -5,8 +5,8 @@ import type { AlertEvent, EvaluatorState, StoredEvent } from "./types.js";
 export function formatAlertMessage(alert: AlertEvent, opts?: { diagnosisHint?: string }): string {
   const prefix =
     alert.severity === "critical"
-      ? "[Steadwing] CRITICAL: "
-      : "[Steadwing] ";
+      ? "[OpenAlerts] CRITICAL: "
+      : "[OpenAlerts] ";
 
   const lines = [prefix + alert.title, "", alert.detail, "", "/health for full status."];
 
@@ -35,7 +35,7 @@ export function formatHealthOutput(opts: {
   const status = activeAlerts.length > 0 ? "DEGRADED" : "OK";
 
   const lines: string[] = [
-    "System Health -- Steadwing Alert",
+    "System Health -- OpenAlerts",
     "",
     `Status: ${status}`,
     `Uptime: ${uptime} | Last heartbeat: ${heartbeatAgo}`,
@@ -81,7 +81,7 @@ export function formatHealthOutput(opts: {
   lines.push("");
   lines.push(
     platformConnected
-      ? "Platform: connected (steadwing.dev)"
+      ? "Platform: connected (openalerts.dev)"
       : "Platform: not connected (add apiKey for diagnosis)",
   );
 

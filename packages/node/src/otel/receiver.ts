@@ -1,10 +1,10 @@
-import type { SteadwingEvent, SteadwingEventType } from "@steadwing/core";
+import type { OpenAlertsEvent, OpenAlertsEventType } from "@steadwing/openalerts-core";
 
 /**
- * OpenInference span kinds → SteadwingEvent types.
+ * OpenInference span kinds → OpenAlertsEvent types.
  * OpenInference is the standard used by Phoenix/Arize for AI observability.
  */
-const SPAN_KIND_MAP: Record<string, SteadwingEventType> = {
+const SPAN_KIND_MAP: Record<string, OpenAlertsEventType> = {
   LLM: "llm.call",
   TOOL: "tool.call",
   AGENT: "agent.end",
@@ -15,7 +15,7 @@ const SPAN_KIND_MAP: Record<string, SteadwingEventType> = {
 
 /**
  * Minimal OTLP span shape (subset of opentelemetry-proto).
- * We only need the fields we map to SteadwingEvent.
+ * We only need the fields we map to OpenAlertsEvent.
  */
 export type OtlpSpan = {
   name?: string;
@@ -42,18 +42,18 @@ function nanosToMs(nanos: string | number | undefined): number {
 }
 
 /**
- * Convert an OTLP span (OpenInference conventions) to a SteadwingEvent.
+ * Convert an OTLP span (OpenInference conventions) to an OpenAlertsEvent.
  *
  * Works with traces exported by Phoenix, Arize, LangSmith, etc.
- * Apps exporting OTLP spans can pipe them through Steadwing with no code changes.
+ * Apps exporting OTLP spans can pipe them through OpenAlerts with no code changes.
  *
  * ```ts
- * import { otlpSpanToEvent } from "@steadwing/node/otel";
+ * import { otlpSpanToEvent } from "@steadwing/openalerts-node/otel";
  * const event = otlpSpanToEvent(span);
  * if (event) captureEvent(event);
  * ```
  */
-export function otlpSpanToEvent(span: OtlpSpan): SteadwingEvent | null {
+export function otlpSpanToEvent(span: OtlpSpan): OpenAlertsEvent | null {
   // Determine span kind from OpenInference attribute
   const openInferenceKind = getAttr(span, "openinference.span.kind") as string | undefined;
   const eventType = openInferenceKind ? SPAN_KIND_MAP[openInferenceKind] : undefined;
@@ -65,7 +65,7 @@ export function otlpSpanToEvent(span: OtlpSpan): SteadwingEvent | null {
 
   const isError = span.status?.code === 2; // OTLP StatusCode.ERROR
 
-  const event: SteadwingEvent = {
+  const event: OpenAlertsEvent = {
     type: eventType,
     ts: endMs || startMs,
     outcome: isError ? "error" : "success",
@@ -93,12 +93,12 @@ export function otlpSpanToEvent(span: OtlpSpan): SteadwingEvent | null {
 
 /**
  * Process a batch of OTLP resource spans.
- * Returns array of SteadwingEvents (nulls filtered out).
+ * Returns array of OpenAlertsEvents (nulls filtered out).
  */
 export function otlpBatchToEvents(
   resourceSpans: Array<{ scopeSpans?: Array<{ spans?: OtlpSpan[] }> }>,
-): SteadwingEvent[] {
-  const events: SteadwingEvent[] = [];
+): OpenAlertsEvent[] {
+  const events: OpenAlertsEvent[] = [];
 
   for (const rs of resourceSpans) {
     for (const ss of rs.scopeSpans ?? []) {

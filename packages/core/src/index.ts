@@ -1,4 +1,4 @@
-// @steadwing/core — universal monitoring engine, zero external dependencies
+// @steadwing/openalerts-core — OpenAlerts engine
 
 // Types
 export type {
@@ -13,10 +13,10 @@ export type {
   MonitorConfig,
   RuleContext,
   RuleOverride,
-  SteadwingEvent,
-  SteadwingEventType,
-  SteadwingInitOptions,
-  SteadwingLogger,
+  OpenAlertsEvent,
+  OpenAlertsEventType,
+  OpenAlertsInitOptions,
+  OpenAlertsLogger,
   StoredEvent,
   WindowEntry,
 } from "./types.js";
@@ -25,10 +25,10 @@ export type {
 export { DEFAULTS, LOG_FILENAME, STORE_DIR_NAME } from "./types.js";
 
 // Engine
-export { SteadwingEngine } from "./engine.js";
+export { OpenAlertsEngine } from "./engine.js";
 
 // Event Bus
-export { SteadwingEventBus } from "./event-bus.js";
+export { OpenAlertsEventBus } from "./event-bus.js";
 
 // Alert Dispatcher
 export { AlertDispatcher } from "./alert-channel.js";

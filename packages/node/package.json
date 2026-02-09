@@ -1,8 +1,8 @@
 {
-  "name": "@steadwing/node",
+  "name": "@steadwing/openalerts-node",
   "version": "0.1.0",
   "type": "module",
-  "description": "Steadwing monitoring SDK for Node.js — init() + captureEvent() + built-in alert channels.",
+  "description": "OpenAlerts monitoring SDK for Node.js — init() + captureEvent() + built-in alert channels.",
   "author": "Steadwing",
   "license": "MIT",
   "main": "src/index.ts",
@@ -12,6 +12,6 @@
     "./otel": "./src/otel/receiver.ts"
   },
   "dependencies": {
-    "@steadwing/core": "0.1.0"
+    "@steadwing/openalerts-core": "0.1.0"
   }
 }

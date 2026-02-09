@@ -1,4 +1,4 @@
-import type { AlertChannel, AlertEvent } from "@steadwing/core";
+import type { AlertChannel, AlertEvent } from "@steadwing/openalerts-core";
 
 /**
  * Generic webhook channel — POSTs JSON to any URL.

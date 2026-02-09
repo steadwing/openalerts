@@ -1,4 +1,4 @@
-import type { AlertChannel, AlertEvent } from "@steadwing/core";
+import type { AlertChannel, AlertEvent } from "@steadwing/openalerts-core";
 
 const SEVERITY_COLORS: Record<string, number> = {
   info: 0x3498db,     // blue
@@ -31,7 +31,7 @@ export class DiscordWebhookAlertChannel implements AlertChannel {
           description: formatted,
           color,
           timestamp: new Date(alert.ts).toISOString(),
-          footer: { text: "Steadwing Alert" },
+          footer: { text: "OpenAlerts" },
         }],
       }),
       signal: AbortSignal.timeout(10_000),

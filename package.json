@@ -1,10 +1,9 @@
 {
-	"name": "steadwing-alerts",
+	"name": "openalerts",
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",
-	"description": "Steadwing — universal monitoring & alerting for AI agents",
-	"author": "Steadwing",
+	"description": "OpenAlerts — universal monitoring & alerting for AI agents",
 	"license": "MIT",
 	"workspaces": [
 		"packages/*"

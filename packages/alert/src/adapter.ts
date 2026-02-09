@@ -3,9 +3,9 @@ import type {
   AlertEvent,
   AlertTarget,
   MonitorConfig,
-  SteadwingEvent,
-  SteadwingEventType,
-} from "@steadwing/core";
+  OpenAlertsEvent,
+  OpenAlertsEventType,
+} from "@steadwing/openalerts-core";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 
 // ─── Diagnostic Event Translation ───────────────────────────────────────────
@@ -20,7 +20,7 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 // not diagnostic events. Those are handled separately in index.ts.
 // ────────────────────────────────────────────────────────────────────────────
 
-const DIAGNOSTIC_EVENT_MAP: Record<string, SteadwingEventType> = {
+const DIAGNOSTIC_EVENT_MAP: Record<string, OpenAlertsEventType> = {
   // Infrastructure
   "webhook.error":          "infra.error",
   "webhook.received":       "custom",              // inbound webhook arrival (informational)
@@ -51,11 +51,11 @@ const DIAGNOSTIC_EVENT_MAP: Record<string, SteadwingEventType> = {
 };
 
 /**
- * Normalize OpenClaw outcome values to SteadwingEvent outcome.
+ * Normalize OpenClaw outcome values to OpenAlertsEvent outcome.
  * OpenClaw uses "completed"/"failed"/"success"/"error" inconsistently
  * across different event types.
  */
-function normalizeOutcome(raw: unknown): SteadwingEvent["outcome"] | undefined {
+function normalizeOutcome(raw: unknown): OpenAlertsEvent["outcome"] | undefined {
   if (typeof raw !== "string") return undefined;
   switch (raw) {
     case "success":
@@ -77,16 +77,16 @@ function normalizeOutcome(raw: unknown): SteadwingEvent["outcome"] | undefined {
 }
 
 /**
- * Translate an OpenClaw diagnostic event into a universal SteadwingEvent.
+ * Translate an OpenClaw diagnostic event into a universal OpenAlertsEvent.
  * Returns null for unmapped event types.
  */
 export function translateOpenClawEvent(
   event: { type: string; [key: string]: unknown },
-): SteadwingEvent | null {
+): OpenAlertsEvent | null {
   const type = DIAGNOSTIC_EVENT_MAP[event.type];
   if (!type) return null;
 
-  const base: SteadwingEvent = {
+  const base: OpenAlertsEvent = {
     type,
     ts: typeof event.ts === "number" ? event.ts : Date.now(),
     channel: event.channel as string | undefined,
@@ -134,9 +134,9 @@ export function translateOpenClawEvent(
     // Map terminal states to specific event types
     const state = event.state as string | undefined;
     if (state === "ended" || state === "closed") {
-      (base as { type: SteadwingEventType }).type = "session.end";
+      (base as { type: OpenAlertsEventType }).type = "session.end";
     } else if (state === "started" || state === "created") {
-      (base as { type: SteadwingEventType }).type = "session.start";
+      (base as { type: OpenAlertsEventType }).type = "session.start";
     }
   }
 
@@ -168,14 +168,14 @@ export function translateOpenClawEvent(
 // These functions are called from index.ts where api.on() is wired.
 // ────────────────────────────────────────────────────────────────────────────
 
-/** Translate after_tool_call hook data into SteadwingEvent. */
+/** Translate after_tool_call hook data into OpenAlertsEvent. */
 export function translateToolCallHook(data: {
   toolName: string;
   params: Record<string, unknown>;
   result?: unknown;
   error?: string;
   durationMs?: number;
-}, context: { sessionId?: string; agentId?: string }): SteadwingEvent {
+}, context: { sessionId?: string; agentId?: string }): OpenAlertsEvent {
   return {
     type: data.error ? "tool.error" : "tool.call",
     ts: Date.now(),
@@ -188,11 +188,11 @@ export function translateToolCallHook(data: {
   };
 }
 
-/** Translate before_agent_start hook data into SteadwingEvent. */
+/** Translate before_agent_start hook data into OpenAlertsEvent. */
 export function translateAgentStartHook(data: {
   prompt: string;
   messages?: unknown[];
-}, context: { sessionId?: string; agentId?: string }): SteadwingEvent {
+}, context: { sessionId?: string; agentId?: string }): OpenAlertsEvent {
   return {
     type: "agent.start",
     ts: Date.now(),
@@ -203,13 +203,13 @@ export function translateAgentStartHook(data: {
   };
 }
 
-/** Translate agent_end hook data into SteadwingEvent. */
+/** Translate agent_end hook data into OpenAlertsEvent. */
 export function translateAgentEndHook(data: {
   messages: unknown[];
   success: boolean;
   error?: string;
   durationMs?: number;
-}, context: { sessionId?: string; agentId?: string }): SteadwingEvent {
+}, context: { sessionId?: string; agentId?: string }): OpenAlertsEvent {
   return {
     type: data.success ? "agent.end" : "agent.error",
     ts: Date.now(),
@@ -222,11 +222,11 @@ export function translateAgentEndHook(data: {
   };
 }
 
-/** Translate session_start hook data into SteadwingEvent. */
+/** Translate session_start hook data into OpenAlertsEvent. */
 export function translateSessionStartHook(data: {
   sessionId: string;
   resumedFrom?: string;
-}): SteadwingEvent {
+}): OpenAlertsEvent {
   return {
     type: "session.start",
     ts: Date.now(),
@@ -239,12 +239,12 @@ export function translateSessionStartHook(data: {
   };
 }
 
-/** Translate session_end hook data into SteadwingEvent. */
+/** Translate session_end hook data into OpenAlertsEvent. */
 export function translateSessionEndHook(data: {
   sessionId: string;
   messageCount: number;
   durationMs?: number;
-}): SteadwingEvent {
+}): OpenAlertsEvent {
   return {
     type: "session.end",
     ts: Date.now(),
@@ -255,13 +255,13 @@ export function translateSessionEndHook(data: {
   };
 }
 
-/** Translate message_sent hook data into SteadwingEvent (delivery tracking). */
+/** Translate message_sent hook data into OpenAlertsEvent (delivery tracking). */
 export function translateMessageSentHook(data: {
   to: string;
   content: string;
   success: boolean;
   error?: string;
-}, context: { channel?: string; sessionId?: string }): SteadwingEvent {
+}, context: { channel?: string; sessionId?: string }): OpenAlertsEvent {
   return {
     type: data.success ? "custom" : "infra.error",
     ts: Date.now(),
@@ -273,10 +273,10 @@ export function translateMessageSentHook(data: {
   };
 }
 
-/** Translate gateway_start hook data into SteadwingEvent. */
+/** Translate gateway_start hook data into OpenAlertsEvent. */
 export function translateGatewayStartHook(data: {
   port: number;
-}): SteadwingEvent {
+}): OpenAlertsEvent {
   return {
     type: "infra.heartbeat",
     ts: Date.now(),
@@ -285,10 +285,10 @@ export function translateGatewayStartHook(data: {
   };
 }
 
-/** Translate gateway_stop hook data into SteadwingEvent. */
+/** Translate gateway_stop hook data into OpenAlertsEvent. */
 export function translateGatewayStopHook(data: {
   reason?: string;
-}): SteadwingEvent {
+}): OpenAlertsEvent {
   return {
     type: "infra.error",
     ts: Date.now(),

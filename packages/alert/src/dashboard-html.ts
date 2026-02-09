@@ -1,6 +1,8 @@
 /**
- * Single-page dashboard HTML for Steadwing real-time monitoring.
- * Flow-based event grouping: events nested under sessions/agents.
+ * OpenAlerts real-time monitoring dashboard.
+ * Tabs: Activity (unified event + log timeline), System Logs, Health.
+ * Activity shows both OpenAlerts engine events AND OpenClaw internal logs
+ * grouped by sessionId for a complete picture of what's happening.
  */
 export function getDashboardHtml(): string {
   return `<!DOCTYPE html>
@@ -8,513 +10,502 @@ export function getDashboardHtml(): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Steadwing Monitor</title>
+<title>OpenAlerts Monitor</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:'SF Mono','Cascadia Code','Consolas',monospace;background:#0d1117;color:#c9d1d9;font-size:13px;overflow:hidden;height:100vh}
+  .grid{display:grid;grid-template-rows:auto auto 1fr;height:100vh}
 
-  .grid{display:grid;grid-template-rows:auto 1fr auto;height:100vh}
-
-  /* ── Top bar ─────────────────────────────────────────────── */
-  .topbar{background:#161b22;border-bottom:1px solid #30363d;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-  .topbar h1{font-size:15px;font-weight:600;color:#f0f6fc;letter-spacing:0.5px}
-  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
+  /* ── Top bar ──────────────────── */
+  .topbar{background:#161b22;border-bottom:1px solid #30363d;padding:8px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .topbar h1{font-size:14px;font-weight:600;color:#f0f6fc;letter-spacing:0.5px}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:4px}
   .dot.live{background:#3fb950;animation:pulse 2s infinite}
   .dot.dead{background:#f85149}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
-  .stat{color:#8b949e;font-size:12px}
+  .stat{color:#8b949e;font-size:11px}
   .stat b{color:#c9d1d9;font-weight:500}
 
-  /* ── Main panels ─────────────────────────────────────────── */
-  .panels{display:grid;grid-template-columns:1fr 320px;gap:0;overflow:hidden}
-  @media(max-width:800px){.panels{grid-template-columns:1fr}}
+  /* ── Tabs ──────────────────── */
+  .tabbar{background:#161b22;border-bottom:1px solid #30363d;display:flex}
+  .tab{padding:7px 18px;font-size:12px;font-weight:600;color:#8b949e;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s}
+  .tab:hover{color:#c9d1d9;background:#1c2129}
+  .tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
+  .tab-content{display:none;overflow:hidden;flex:1}
+  .tab-content.active{display:flex;overflow:hidden}
+  .content{display:flex;flex-direction:column;overflow:hidden}
 
-  .panel{border-right:1px solid #30363d;display:flex;flex-direction:column;overflow:hidden}
-  .panel:last-child{border-right:none}
-  .panel-header{background:#161b22;padding:8px 14px;font-size:12px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:0.8px;border-bottom:1px solid #30363d;flex-shrink:0}
+  /* ── Activity layout ──────────────────── */
+  .activity-panels{display:grid;grid-template-columns:1fr 280px;gap:0;overflow:hidden;flex:1}
+  @media(max-width:900px){.activity-panels{grid-template-columns:1fr}}
+  .panel{display:flex;flex-direction:column;overflow:hidden}
+  .panel-header{background:#161b22;padding:6px 12px;font-size:11px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:0.8px;border-bottom:1px solid #30363d;flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+  .panel:first-child{border-right:1px solid #30363d}
+  .scroll{flex:1;overflow-y:auto}
+  .scroll::-webkit-scrollbar{width:5px}
+  .scroll::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+  .empty-msg{color:#484f58;padding:30px 14px;text-align:center;font-style:italic;font-size:12px}
 
-  /* ── Event stream (flow-based) ─────────────────────────── */
-  .events{flex:1;overflow-y:auto;padding:4px 0}
-  .events::-webkit-scrollbar{width:6px}
-  .events::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
-  .empty-msg{color:#484f58;padding:40px 14px;text-align:center;font-style:italic}
+  /* ── Session flow (collapsible group) ──────────────────── */
+  .flow{border-bottom:1px solid #21262d}
+  .flow-hdr{padding:6px 10px;display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;background:#161b22;border-left:3px solid #30363d;transition:all 0.12s}
+  .flow-hdr:hover{background:#1c2129}
+  .flow.active .flow-hdr{border-left-color:#58a6ff}
+  .flow.done .flow-hdr{border-left-color:#3fb950}
+  .flow.error .flow-hdr{border-left-color:#f85149}
+  .flow-arr{color:#484f58;font-size:9px;width:12px;text-align:center;transition:transform 0.12s;flex-shrink:0}
+  .flow-arr.shut{transform:rotate(-90deg)}
+  .flow-lbl{font-weight:600;color:#c9d1d9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
+  .flow-badge{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;flex-shrink:0}
+  .flow-badge.active{background:#1f3a5f;color:#58a6ff}
+  .flow-badge.done{background:#1a3a2a;color:#3fb950}
+  .flow-badge.error{background:#3d1a1a;color:#f85149}
+  .flow-info{color:#484f58;font-size:10px;margin-left:auto;white-space:nowrap;flex-shrink:0}
+  .flow-body{overflow:hidden;transition:max-height 0.2s ease-out}
+  .flow-body.shut{max-height:0!important;overflow:hidden}
 
-  /* ── Flow container (session/agent grouping) ──────────── */
-  .flow{margin:2px 0;border-left:3px solid #30363d;background:#0d1117}
-  .flow.active{border-left-color:#58a6ff}
-  .flow.done{border-left-color:#3fb950}
-  .flow.error{border-left-color:#f85149}
+  /* ── Event/Log row ──────────────────── */
+  .row{padding:3px 10px 3px 24px;border-top:1px solid #0d1117;font-size:11px;line-height:1.5;animation:fi 0.15s ease}
+  .row:hover{background:#0d1117}
+  .row.standalone{padding-left:10px;border-bottom:1px solid #21262d;border-top:none}
+  .row.deep{padding-left:38px}
 
-  .flow-header{padding:6px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;background:#161b22;border-bottom:1px solid #21262d}
-  .flow-header:hover{background:#1c2129}
-  .flow-toggle{color:#484f58;font-size:10px;width:12px;transition:transform 0.15s}
-  .flow-toggle.collapsed{transform:rotate(-90deg)}
-  .flow-label{font-weight:600;color:#c9d1d9}
-  .flow-status{font-size:11px;padding:1px 6px;border-radius:3px;font-weight:600}
-  .flow-status.active{background:#1f3a5f;color:#58a6ff}
-  .flow-status.done{background:#1a3a2a;color:#3fb950}
-  .flow-status.error{background:#3d1a1a;color:#f85149}
-  .flow-meta{color:#484f58;font-size:11px;margin-left:auto}
-  .flow-events{overflow:hidden;transition:max-height 0.2s ease}
-  .flow-events.collapsed{max-height:0!important;overflow:hidden}
+  /* OpenAlerts event row */
+  .row .r-main{display:flex;align-items:center;gap:5px}
+  .r-time{color:#484f58;font-size:10px;min-width:55px;flex-shrink:0}
+  .r-icon{width:14px;text-align:center;flex-shrink:0;font-size:11px}
+  .r-type{font-weight:600;min-width:90px;font-size:10px;flex-shrink:0}
+  .r-type.llm{color:#58a6ff} .r-type.tool{color:#bc8cff} .r-type.agent{color:#3fb950}
+  .r-type.session{color:#d29922} .r-type.infra{color:#f85149} .r-type.custom{color:#8b949e}
+  .r-type.watchdog{color:#6e7681}
+  .r-oc{font-size:9px;padding:0 4px;border-radius:3px;font-weight:700;flex-shrink:0}
+  .r-oc.success{background:#1a3a2a;color:#3fb950}
+  .r-oc.error{background:#3d1a1a;color:#f85149}
+  .r-oc.timeout{background:#3d2e1a;color:#d29922}
+  .r-pills{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto;align-items:center}
+  .p{font-size:9px;background:#21262d;padding:0 5px;border-radius:3px;white-space:nowrap}
+  .p.t{color:#bc8cff;background:#2a1f3d} .p.d{color:#d29922} .p.tk{color:#58a6ff}
+  .p.q{color:#f0883e} .p.m{color:#8b949e} .p.ch{color:#d2a8ff} .p.s{color:#6e7681;font-size:8px}
+  .r-det{padding:1px 0 1px 70px;color:#6e7681;font-size:10px}
+  .r-det .err{color:#f85149} .r-det .dim{color:#484f58} .r-det .sc{color:#d29922}
 
-  /* ── Individual event row ──────────────────────────────── */
-  .ev{padding:4px 14px 4px 28px;border-bottom:1px solid #161b22;font-size:12px;animation:fadeIn 0.25s ease}
-  .ev:hover{background:#161b22}
-  .ev.standalone{padding-left:14px;border-bottom:1px solid #21262d}
-  .ev-top{display:flex;align-items:center;gap:8px}
-  .ev-time{color:#484f58;font-size:11px;min-width:62px}
-  .ev-type{font-weight:600;min-width:120px}
-  .ev-badge{font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600}
-  .ev-badge.success{background:#1a3a2a;color:#3fb950}
-  .ev-badge.error{background:#3d1a1a;color:#f85149}
-  .ev-badge.timeout{background:#3d2e1a;color:#d29922}
-  .ev-badge.active{background:#1f3a5f;color:#58a6ff}
-  .ev-pills{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
-  .ev-pill{color:#8b949e;font-size:11px;background:#21262d;padding:1px 6px;border-radius:3px}
-  .ev-pill.tool-name{color:#bc8cff;background:#2a1f3d}
-  .ev-pill.duration{color:#d29922}
-  .ev-pill.tokens{color:#58a6ff}
-  .ev-pill.cost{color:#3fb950}
-  .ev-pill.queue{color:#f0883e}
-  .ev-detail{padding:3px 0 2px 70px;color:#6e7681;font-size:11px;line-height:1.4}
-  .ev-detail .err-text{color:#f85149}
-  .ev-detail .meta-text{color:#484f58}
+  /* OpenClaw log row */
+  .row.log .r-main{display:flex;align-items:baseline;gap:5px}
+  .r-lvl{font-size:9px;font-weight:700;min-width:38px;flex-shrink:0}
+  .r-lvl.DEBUG{color:#6e7681} .r-lvl.INFO{color:#58a6ff} .r-lvl.WARN{color:#d29922} .r-lvl.ERROR{color:#f85149}
+  .r-sub{color:#bc8cff;font-size:10px;min-width:100px;max-width:140px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .r-msg{color:#c9d1d9;font-size:11px;word-break:break-word}
+  .r-kvs{color:#484f58;font-size:10px;padding-left:70px}
+  .r-kvs span{margin-right:8px}
 
-  /* Event type colors */
-  .ev-type.llm{color:#58a6ff}
-  .ev-type.tool{color:#bc8cff}
-  .ev-type.agent{color:#3fb950}
-  .ev-type.session{color:#d29922}
-  .ev-type.infra{color:#f85149}
-  .ev-type.custom{color:#8b949e}
-  .ev-type.watchdog{color:#6e7681}
+  @keyframes fi{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:none}}
 
-  @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  /* ── Alerts panel ──────────────────── */
+  .al{padding:6px 10px;border-bottom:1px solid #21262d;font-size:11px;animation:fi 0.2s}
+  .al-sev{font-weight:700;text-transform:uppercase;font-size:9px;letter-spacing:0.4px}
+  .al-sev.error{color:#f85149} .al-sev.warn{color:#d29922} .al-sev.critical{color:#ff7b72} .al-sev.info{color:#58a6ff}
+  .al-title{color:#c9d1d9;margin-top:1px;font-size:11px}
+  .al-detail{color:#8b949e;margin-top:1px;font-size:10px}
+  .al-time{color:#484f58;font-size:10px;margin-top:1px}
 
-  /* ── Alerts panel ──────────────────────────────────────── */
-  .alerts{flex:1;overflow-y:auto;padding:4px 0}
-  .alert-item{padding:8px 14px;border-bottom:1px solid #21262d;font-size:12px;animation:fadeIn 0.3s ease}
-  .alert-item .alert-sev{font-weight:700;text-transform:uppercase;font-size:11px}
-  .alert-item .alert-sev.error{color:#f85149}
-  .alert-item .alert-sev.warn{color:#d29922}
-  .alert-item .alert-sev.critical{color:#ff7b72}
-  .alert-item .alert-sev.info{color:#58a6ff}
-  .alert-item .alert-title{color:#c9d1d9;margin-top:2px}
-  .alert-item .alert-detail{color:#8b949e;margin-top:2px;font-size:11px}
-  .alert-item .alert-time{color:#484f58;font-size:11px;margin-top:2px}
+  /* ── Rules ──────────────────── */
+  .rules{border-top:1px solid #30363d;padding:6px 10px;flex-shrink:0}
+  .rules h3{font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:4px}
+  .rl{display:flex;align-items:center;gap:5px;font-size:11px;padding:1px 0}
+  .rl-d{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+  .rl-d.ok{background:#3fb950} .rl-d.fired{background:#f85149;animation:pulse 1s infinite}
+  .rl-s{color:#8b949e;margin-left:auto;font-size:10px}
 
-  /* ── Rules list ────────────────────────────────────────── */
-  .rules-section{border-top:1px solid #30363d;padding:8px 14px;flex-shrink:0}
-  .rules-section h3{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px}
-  .rule{display:flex;align-items:center;gap:6px;font-size:12px;padding:2px 0}
-  .rule-dot{width:6px;height:6px;border-radius:50%}
-  .rule-dot.ok{background:#3fb950}
-  .rule-dot.fired{background:#f85149;animation:pulse 1s infinite}
-  .rule-name{color:#c9d1d9}
-  .rule-status{color:#8b949e;margin-left:auto;font-size:11px}
+  /* ── Logs tab ──────────────────── */
+  .logs-t{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  .log-bar{background:#161b22;padding:5px 12px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:10px;flex-shrink:0;font-size:11px}
+  .log-bar select,.log-bar input{background:#0d1117;border:1px solid #30363d;color:#c9d1d9;font-family:inherit;font-size:10px;padding:2px 6px;border-radius:3px}
+  .log-bar button{background:#21262d;border:1px solid #30363d;color:#c9d1d9;font-family:inherit;font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer}
+  .log-bar label{color:#8b949e}
+  .log-list{flex:1;overflow-y:auto;font-size:11px}
+  .log-e{padding:2px 12px;border-bottom:1px solid #161b22;display:flex;gap:6px;align-items:baseline}
+  .log-e:hover{background:#161b22}
+  .log-ts{color:#484f58;font-size:10px;min-width:70px;flex-shrink:0}
+  .log-lv{font-size:9px;font-weight:700;min-width:42px;flex-shrink:0}
+  .log-lv.DEBUG{color:#8b949e} .log-lv.INFO{color:#58a6ff} .log-lv.WARN{color:#d29922} .log-lv.ERROR{color:#f85149}
+  .log-su{color:#bc8cff;font-size:10px;min-width:110px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .log-mg{color:#c9d1d9;word-break:break-all}
 
-  /* ── Bottom bar ────────────────────────────────────────── */
-  .bottombar{background:#161b22;border-top:1px solid #30363d;padding:10px 16px}
-  .bottombar h3{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px}
-  .sim-row{display:flex;flex-wrap:wrap;gap:6px}
-  .sim-btn{border:1px solid #30363d;border-radius:6px;padding:5px 10px;font-size:11px;font-family:inherit;cursor:pointer;transition:all 0.15s}
-  .sim-btn.ok{background:#0d1117;color:#3fb950;border-color:#238636}
-  .sim-btn.ok:hover{background:#238636;color:#fff}
-  .sim-btn.err{background:#0d1117;color:#f85149;border-color:#da3633}
-  .sim-btn.err:hover{background:#da3633;color:#fff}
-  .sim-btn:active{transform:scale(0.95)}
-  .sim-btn.flash{animation:btnflash 0.3s}
-  @keyframes btnflash{0%{transform:scale(0.9)}50%{transform:scale(1.05)}100%{transform:scale(1)}}
+  /* ── Health tab ──────────────────── */
+  .health-t{flex:1;overflow-y:auto;padding:14px}
+  .h-sec{margin-bottom:16px}
+  .h-sec h3{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #21262d}
+  .h-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px}
+  .h-card{background:#161b22;border:1px solid #21262d;border-radius:5px;padding:8px 12px}
+  .h-card .lb{color:#8b949e;font-size:10px;margin-bottom:2px}
+  .h-card .vl{color:#c9d1d9;font-size:13px;font-weight:600}
+  .h-card .vl.ok{color:#3fb950} .h-card .vl.bad{color:#f85149}
+  .h-tbl{width:100%;border-collapse:collapse}
+  .h-tbl td{padding:3px 8px;font-size:11px;border-bottom:1px solid #161b22}
+  .h-tbl td:first-child{color:#8b949e;width:140px}
 </style>
 </head>
 <body>
 <div class="grid">
-  <!-- Top bar -->
   <div class="topbar">
-    <h1><span class="dot dead" id="statusDot"></span> STEADWING</h1>
-    <span class="stat" id="connLabel">connecting...</span>
-    <span class="stat">uptime: <b id="uptime">--</b></span>
-    <span class="stat">msgs: <b id="statMsgs">0</b></span>
-    <span class="stat">errors: <b id="statErrors">0</b></span>
-    <span class="stat">tools: <b id="statTools">0</b></span>
-    <span class="stat">agents: <b id="statAgents">0</b></span>
-    <span class="stat">sessions: <b id="statSessions">0</b></span>
+    <h1><span class="dot dead" id="sDot"></span> OPENALERTS</h1>
+    <span class="stat" id="sConn">connecting...</span>
+    <span class="stat">up: <b id="sUp">--</b></span>
+    <span class="stat">msgs: <b id="sMsgs">0</b></span>
+    <span class="stat">err: <b id="sErr">0</b></span>
+    <span class="stat">tools: <b id="sTools">0</b></span>
+    <span class="stat">agents: <b id="sAgents">0</b></span>
   </div>
-
-  <!-- Main panels -->
-  <div class="panels">
-    <!-- Event stream -->
-    <div class="panel">
-      <div class="panel-header">Activity Flow <span id="eventCount" style="float:right;color:#484f58">0 events</span></div>
-      <div class="events" id="eventList">
-        <div class="empty-msg" id="emptyMsg">Waiting for events... click Simulate below or send a message to the bot.</div>
+  <div class="tabbar">
+    <div class="tab active" data-tab="activity">Activity</div>
+    <div class="tab" data-tab="logs">System Logs</div>
+    <div class="tab" data-tab="health">Health</div>
+  </div>
+  <div class="content">
+    <!-- Activity -->
+    <div class="tab-content active" id="tab-activity">
+      <div class="activity-panels">
+        <div class="panel">
+          <div class="panel-header"><span>Live Timeline</span><span style="color:#484f58;font-weight:400" id="evCnt">0</span></div>
+          <div class="scroll" id="evList"><div class="empty-msg" id="emptyMsg">Waiting for events... send a message to your bot.</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">Alerts</div>
+          <div class="scroll" id="alList"><div class="empty-msg" id="alEmpty">No alerts.</div></div>
+          <div class="rules" id="rulesEl"><h3>Rules</h3></div>
+        </div>
       </div>
     </div>
-
-    <!-- Alerts + Rules -->
-    <div class="panel">
-      <div class="panel-header">Alerts</div>
-      <div class="alerts" id="alertList">
-        <div class="empty-msg" id="alertEmpty">No alerts yet.</div>
-      </div>
-      <div class="rules-section" id="rulesSection">
-        <h3>Rules</h3>
+    <!-- System Logs -->
+    <div class="tab-content" id="tab-logs">
+      <div class="logs-t">
+        <div class="log-bar">
+          <label>Sub:</label>
+          <select id="lF"><option value="">All</option><option value="diagnostic">diagnostic</option><option value="plugins">plugins</option><option value="agent">agent</option><option value="gateway">gateway</option></select>
+          <label>Level:</label>
+          <select id="lL"><option value="">All</option><option value="INFO">INFO+</option><option value="WARN">WARN+</option><option value="ERROR">ERROR</option></select>
+          <input type="text" id="lS" placeholder="Search..." style="width:120px">
+          <button id="lR">Refresh</button>
+          <label style="margin-left:auto"><input type="checkbox" id="lA" checked> Auto</label>
+        </div>
+        <div class="log-list" id="logList"><div class="empty-msg">Loading...</div></div>
       </div>
     </div>
-  </div>
-
-  <!-- Bottom bar: Simulate -->
-  <div class="bottombar">
-    <h3>Simulate</h3>
-    <div class="sim-row">
-      <button class="sim-btn ok" data-key="heartbeat_ok">Heartbeat OK</button>
-      <button class="sim-btn ok" data-key="llm_success">LLM OK</button>
-      <button class="sim-btn ok" data-key="tool_success">Tool OK</button>
-      <button class="sim-btn ok" data-key="agent_start">Agent Start</button>
-      <button class="sim-btn ok" data-key="agent_end">Agent End</button>
-      <button class="sim-btn err" data-key="webhook_error">Webhook Err</button>
-      <button class="sim-btn err" data-key="llm_failure">LLM Fail</button>
-      <button class="sim-btn err" data-key="session_stuck">Session Stuck</button>
-      <button class="sim-btn err" data-key="heartbeat_fail">HB Fail</button>
-      <button class="sim-btn err" data-key="tool_error">Tool Err</button>
-      <button class="sim-btn err" data-key="queue_spike">Queue Spike</button>
+    <!-- Health -->
+    <div class="tab-content" id="tab-health">
+      <div class="health-t" id="hC"><div class="empty-msg">Loading...</div></div>
     </div>
   </div>
 </div>
-
 <script>
-(function() {
-  const MAX_EVENTS = 500;
-  const MAX_ALERTS = 100;
-  const FLOW_TIMEOUT_MS = 120000; // close stale flows after 2 min
-  let totalCount = 0;
-  let paused = false;
-  let evSource = null;
+(function(){
+  var MAX_FLOWS=150, MAX_STANDALONE=300, MAX_ALERTS=50, STALE_MS=120000;
+  var total=0, paused=false, evSrc=null;
+  var $=function(i){return document.getElementById(i)};
+  var evList=$('evList'), emptyMsg=$('emptyMsg'), alList=$('alList'), alEmpty=$('alEmpty'), evCnt=$('evCnt');
 
-  const $ = id => document.getElementById(id);
-  const eventList = $('eventList');
-  const emptyMsg = $('emptyMsg');
-  const alertList = $('alertList');
-  const alertEmpty = $('alertEmpty');
-  const eventCount = $('eventCount');
+  function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+  function cat(t){if(!t)return'custom';var p=t.split('.')[0];return['llm','tool','agent','session','infra','watchdog'].indexOf(p)>=0?p:'custom'}
+  function fT(ts){if(!ts)return'';var d=typeof ts==='number'?new Date(ts):new Date(ts);return d.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+  function fD(ms){if(ms==null)return'';if(ms<1000)return ms+'ms';if(ms<60000)return(ms/1000).toFixed(1)+'s';return Math.floor(ms/60000)+'m '+Math.round((ms%60000)/1000)+'s'}
+  function fU(ms){var s=Math.floor(ms/1000),m=Math.floor(s/60),h=Math.floor(m/60);return h>0?h+'h '+m%60+'m':m+'m '+s%60+'s'}
 
-  // ── Helpers ─────────────────────────────────────────────
-  function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-  function category(type) {
-    if (!type) return 'custom';
-    const p = type.split('.')[0];
-    return ['llm','tool','agent','session','infra','watchdog'].includes(p) ? p : 'custom';
-  }
-  function fmtTime(ts) {
-    return new Date(ts).toLocaleTimeString('en-US', {hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  }
-  function fmtDur(ms) {
-    if (ms == null) return '';
-    if (ms < 1000) return ms + 'ms';
-    if (ms < 60000) return (ms/1000).toFixed(1) + 's';
-    return Math.floor(ms/60000) + 'm ' + Math.round((ms%60000)/1000) + 's';
-  }
-  function fmtUptime(ms) {
-    const s = Math.floor(ms/1000), m = Math.floor(s/60), h = Math.floor(m/60);
-    return h > 0 ? h+'h '+m%60+'m' : m+'m '+s%60+'s';
-  }
+  // ─── Subsystem label helpers ──────────────────────
+  var subIcons={'diagnostic':'\\u2139','plugins':'\\u2699','agent/embedded':'\\u25B6','gateway':'\\u2302','gateway/ws':'\\u21C4','heartbeat':'\\u2764','canvas':'\\u25A1'};
+  function subIcon(s){for(var k in subIcons)if(s.indexOf(k)>=0)return subIcons[k];return'\\u2022'}
 
-  // ── Flow Tracker ────────────────────────────────────────
-  // Groups events by sessionKey. Events with matching sessionKey
-  // appear nested under a collapsible flow container.
-  // Flow types: agent.start → opens, agent.end/error → closes.
-  // Session.start/end also create flows.
-  const flows = new Map(); // sessionKey → { el, eventsEl, status, count, startTs }
+  // ─── Flow tracker ──────────────────────
+  var flows={}, flowOrd=[];
 
-  function isFlowStarter(type) {
-    return type === 'agent.start' || type === 'session.start';
-  }
-  function isFlowEnder(type) {
-    return type === 'agent.end' || type === 'agent.error' || type === 'session.end';
-  }
-
-  function getOrCreateFlow(ev) {
-    const key = ev.sessionKey || ev.agentId;
-    if (!key) return null;
-
-    let flow = flows.get(key);
-
-    if (!flow) {
-      // Create new flow container
-      const container = document.createElement('div');
-      container.className = 'flow active';
-      container.dataset.key = key;
-
-      const header = document.createElement('div');
-      header.className = 'flow-header';
-      const shortKey = key.length > 12 ? key.slice(0,12) + '..' : key;
-      const label = ev.agentId ? 'Agent ' + (ev.agentId.length > 10 ? ev.agentId.slice(0,10)+'..' : ev.agentId) : 'Session';
-      header.innerHTML =
-        '<span class="flow-toggle">\\u25BC</span>' +
-        '<span class="flow-label">' + esc(label) + '</span>' +
-        '<span class="flow-status active" data-role="status">active</span>' +
-        '<span class="flow-meta" data-role="meta">' + esc(shortKey) + ' \\u00B7 ' + fmtTime(ev.ts) + '</span>';
-
-      header.addEventListener('click', function() {
-        const toggle = header.querySelector('.flow-toggle');
-        const events = container.querySelector('.flow-events');
-        const collapsed = !events.classList.contains('collapsed');
-        events.classList.toggle('collapsed', collapsed);
-        toggle.classList.toggle('collapsed', collapsed);
-      });
-
-      const eventsEl = document.createElement('div');
-      eventsEl.className = 'flow-events';
-
-      container.appendChild(header);
-      container.appendChild(eventsEl);
-
-      flow = { el: container, eventsEl, headerEl: header, status: 'active', count: 0, startTs: ev.ts, key };
-      flows.set(key, flow);
-
-      // Insert at top of event list
-      emptyMsg.style.display = 'none';
-      eventList.insertBefore(container, eventList.firstChild);
-    }
-
-    return flow;
-  }
-
-  function updateFlowStatus(flow, status, ev) {
-    flow.status = status;
-    flow.el.className = 'flow ' + status;
-    const statusEl = flow.headerEl.querySelector('[data-role="status"]');
-    if (statusEl) {
-      statusEl.className = 'flow-status ' + status;
-      statusEl.textContent = status;
-    }
-    // Update meta with duration
-    if (ev && (ev.durationMs != null || status !== 'active')) {
-      const metaEl = flow.headerEl.querySelector('[data-role="meta"]');
-      if (metaEl) {
-        const dur = ev.durationMs != null ? ' \\u00B7 ' + fmtDur(ev.durationMs) : '';
-        const tok = ev.tokenCount != null ? ' \\u00B7 ' + ev.tokenCount + 'tok' : '';
-        const cnt = flow.count + ' events';
-        metaEl.textContent = flow.key.slice(0,12) + ' \\u00B7 ' + cnt + dur + tok;
-      }
-    }
-  }
-
-  // ── Build event row DOM ─────────────────────────────────
-  function buildEventRow(ev, nested) {
-    const div = document.createElement('div');
-    div.className = 'ev' + (nested ? '' : ' standalone');
-
-    const cat = category(ev.type);
-    const oc = ev.outcome || '';
-
-    // Top line: time, type, outcome badge, info pills
-    let topHtml = '<div class="ev-top">';
-    topHtml += '<span class="ev-time">' + fmtTime(ev.ts) + '</span>';
-    topHtml += '<span class="ev-type ' + cat + '">' + esc(ev.type || 'unknown') + '</span>';
-
-    if (oc) {
-      topHtml += '<span class="ev-badge ' + oc + '">' + (oc === 'success' ? '\\u2713' : oc === 'error' ? '\\u2717' : oc === 'timeout' ? '\\u23F1' : '') + ' ' + oc + '</span>';
-    }
-
-    // Info pills (right-aligned)
-    topHtml += '<span class="ev-pills">';
-    if (ev.meta && ev.meta.toolName) topHtml += '<span class="ev-pill tool-name">' + esc(String(ev.meta.toolName)) + '</span>';
-    if (ev.durationMs != null) topHtml += '<span class="ev-pill duration">' + fmtDur(ev.durationMs) + '</span>';
-    if (ev.tokenCount != null) topHtml += '<span class="ev-pill tokens">' + ev.tokenCount + ' tok</span>';
-    if (ev.costUsd != null) topHtml += '<span class="ev-pill cost">$' + Number(ev.costUsd).toFixed(4) + '</span>';
-    if (ev.queueDepth != null) topHtml += '<span class="ev-pill queue">depth=' + ev.queueDepth + '</span>';
-    if (ev.channel) topHtml += '<span class="ev-pill">' + esc(ev.channel) + '</span>';
-    topHtml += '</span></div>';
-
-    // Detail line: error message, meta info
-    let detailHtml = '';
-    const detailParts = [];
-    if (ev.error) detailParts.push('<span class="err-text">' + esc(ev.error) + '</span>');
-    if (ev.ageMs != null) detailParts.push('stuck for ' + fmtDur(ev.ageMs));
-    if (ev.meta) {
-      if (ev.meta.model) detailParts.push('<span class="meta-text">model: ' + esc(String(ev.meta.model)) + '</span>');
-      if (ev.meta.provider) detailParts.push('<span class="meta-text">provider: ' + esc(String(ev.meta.provider)) + '</span>');
-      if (ev.meta.source && String(ev.meta.source).startsWith('hook:')) detailParts.push('<span class="meta-text">via ' + esc(String(ev.meta.source)) + '</span>');
-      if (ev.meta.messageCount != null) detailParts.push('<span class="meta-text">' + ev.meta.messageCount + ' messages</span>');
-      if (ev.meta.lane) detailParts.push('<span class="meta-text">lane: ' + esc(String(ev.meta.lane)) + '</span>');
-      if (ev.meta.sessionState) detailParts.push('<span class="meta-text">state: ' + esc(String(ev.meta.sessionState)) + '</span>');
-    }
-    if (ev.sessionKey && !nested) detailParts.push('<span class="meta-text">session: ' + esc(ev.sessionKey.slice(0,12)) + '</span>');
-    if (ev.agentId && !nested) detailParts.push('<span class="meta-text">agent: ' + esc(ev.agentId.slice(0,12)) + '</span>');
-
-    if (detailParts.length > 0) {
-      detailHtml = '<div class="ev-detail">' + detailParts.join(' \\u00B7 ') + '</div>';
-    }
-
-    div.innerHTML = topHtml + detailHtml;
-    return div;
-  }
-
-  // ── Ingest event into the view ──────────────────────────
-  function addEvent(ev) {
-    totalCount++;
-    eventCount.textContent = totalCount + ' events';
-    emptyMsg.style.display = 'none';
-
-    if (paused) return;
-
-    const key = ev.sessionKey || ev.agentId;
-
-    // Try to add to an existing or new flow
-    if (key) {
-      // Create flow on flow-starting events or if one exists
-      if (isFlowStarter(ev.type) || flows.has(key)) {
-        const flow = getOrCreateFlow(ev);
-        if (flow) {
-          flow.count++;
-          const row = buildEventRow(ev, true);
-          flow.eventsEl.appendChild(row);
-
-          // Update flow status
-          if (isFlowEnder(ev.type)) {
-            const endStatus = ev.outcome === 'error' || ev.type === 'agent.error' ? 'error' : 'done';
-            updateFlowStatus(flow, endStatus, ev);
-          }
-
-          // Scroll parent into view
-          flow.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-          return;
-        }
-      }
-    }
-
-    // Standalone event (no session context or not part of a flow)
-    const row = buildEventRow(ev, false);
-    if (eventList.firstChild && eventList.firstChild !== emptyMsg) {
-      eventList.insertBefore(row, eventList.firstChild);
-    } else {
-      eventList.appendChild(row);
-    }
-
-    // Trim old standalone events
-    while (eventList.querySelectorAll('.ev.standalone').length > 200) {
-      const all = eventList.querySelectorAll('.ev.standalone');
-      all[all.length - 1].remove();
-    }
-  }
-
-  // ── Stale flow cleanup ──────────────────────────────────
-  setInterval(function() {
-    const now = Date.now();
-    for (const [key, flow] of flows) {
-      if (flow.status === 'active' && now - flow.startTs > FLOW_TIMEOUT_MS) {
-        updateFlowStatus(flow, 'done', null);
-      }
-      // Remove very old completed flows from DOM
-      if (flow.status !== 'active' && now - flow.startTs > 600000) {
-        flow.el.remove();
-        flows.delete(key);
-      }
-    }
-  }, 30000);
-
-  // ── Render one alert ────────────────────────────────────
-  function addAlert(a) {
-    alertEmpty.style.display = 'none';
-    const div = document.createElement('div');
-    div.className = 'alert-item';
-    div.innerHTML =
-      '<div class="alert-sev ' + (a.severity||'error') + '">[' + (a.severity||'ERROR').toUpperCase() + '] ' + esc(a.ruleId||'') + '</div>' +
-      '<div class="alert-title">' + esc(a.title||'Alert') + '</div>' +
-      '<div class="alert-detail">' + esc(a.detail||'') + '</div>' +
-      '<div class="alert-time">' + fmtTime(a.ts) + '</div>';
-    alertList.insertBefore(div, alertList.firstChild);
-    while (alertList.children.length > MAX_ALERTS + 1) {
-      alertList.removeChild(alertList.lastChild);
-    }
-  }
-
-  // ── Pause on hover ──────────────────────────────────────
-  eventList.addEventListener('mouseenter', function() { paused = true; });
-  eventList.addEventListener('mouseleave', function() { paused = false; });
-
-  // ── SSE connection ──────────────────────────────────────
-  function connectSSE() {
-    if (evSource) evSource.close();
-    evSource = new EventSource('/steadwing/events');
-    evSource.addEventListener('steadwing', function(e) {
-      try {
-        const data = JSON.parse(e.data);
-        addEvent(data);
-      } catch(_) {}
+  function getFlow(sid,ev){
+    if(flows[sid])return flows[sid];
+    var c=document.createElement('div');c.className='flow active';
+    var hdr=document.createElement('div');hdr.className='flow-hdr';
+    var short=sid.length>20?sid.slice(0,8)+'..'+sid.slice(-4):sid;
+    hdr.innerHTML='<span class="flow-arr">\\u25BC</span><span class="flow-lbl">Session '+esc(short)+'</span><span class="flow-badge active" data-r="st">active</span><span class="flow-info" data-r="info">'+fT(ev.ts||ev.tsMs)+'</span>';
+    var body=document.createElement('div');body.className='flow-body';
+    hdr.addEventListener('click',function(){
+      var shut=!body.classList.contains('shut');
+      body.classList.toggle('shut',shut);
+      hdr.querySelector('.flow-arr').classList.toggle('shut',shut);
     });
-    evSource.onopen = function() {
-      $('statusDot').className = 'dot live';
-      $('connLabel').textContent = 'live';
-    };
-    evSource.onerror = function() {
-      $('statusDot').className = 'dot dead';
-      $('connLabel').textContent = 'reconnecting...';
-    };
+    c.appendChild(hdr);c.appendChild(body);
+    var f={el:c,body:body,hdr:hdr,st:'active',n:0,startTs:Date.now(),sid:sid,err:false,dur:0,tok:0,tools:0,llms:0};
+    flows[sid]=f;flowOrd.push(sid);
+    emptyMsg.style.display='none';
+    evList.insertBefore(c,evList.firstChild);
+    return f;
   }
 
-  // ── State polling (stats + alerts + rules) ──────────────
-  let prevAlertIds = new Set();
-
-  function pollState() {
-    fetch('/steadwing/state').then(function(r){ return r.json(); }).then(function(state) {
-      if (state.stats) {
-        $('statMsgs').textContent = state.stats.messagesProcessed || 0;
-        $('statErrors').textContent = (state.stats.messageErrors || 0) + (state.stats.webhookErrors || 0);
-        $('statTools').textContent = state.stats.toolCalls || 0;
-        $('statAgents').textContent = state.stats.agentStarts || 0;
-        $('statSessions').textContent = state.stats.sessionsStarted || 0;
-      }
-      if (state.uptimeMs != null) {
-        $('uptime').textContent = fmtUptime(state.uptimeMs);
-      }
-      // Detect new alerts (compare IDs with previous poll)
-      if (state.recentAlerts && state.recentAlerts.length > 0) {
-        var newIds = new Set();
-        for (var i = 0; i < state.recentAlerts.length; i++) {
-          var a = state.recentAlerts[i];
-          newIds.add(a.id);
-          if (!prevAlertIds.has(a.id)) {
-            addAlert(a);
-          }
-        }
-        prevAlertIds = newIds;
-      }
-      // Rules
-      if (state.rules) {
-        var sec = $('rulesSection');
-        var html = '<h3>Rules</h3>';
-        for (var j = 0; j < state.rules.length; j++) {
-          var r = state.rules[j];
-          var fired = r.status === 'fired';
-          html += '<div class="rule"><span class="rule-dot ' + (fired ? 'fired' : 'ok') + '"></span><span class="rule-name">' + esc(r.id) + '</span><span class="rule-status">' + (fired ? 'FIRING' : 'OK') + '</span></div>';
-        }
-        sec.innerHTML = html;
-      }
-    }).catch(function(){});
+  function updFlow(f,st){
+    f.st=st;f.el.className='flow '+st;
+    var sEl=f.hdr.querySelector('[data-r="st"]');
+    if(sEl){sEl.className='flow-badge '+st;sEl.textContent=st}
+    var iEl=f.hdr.querySelector('[data-r="info"]');
+    if(iEl){
+      var ps=[f.n+' events'];
+      if(f.dur>0)ps.push(fD(f.dur));
+      if(f.tok>0)ps.push(f.tok+' tok');
+      if(f.tools>0)ps.push(f.tools+' tools');
+      if(f.llms>0)ps.push(f.llms+' llm');
+      iEl.textContent=ps.join(' \\u00B7 ');
+    }
   }
 
-  // ── Simulate buttons ────────────────────────────────────
-  document.querySelectorAll('.sim-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var key = this.dataset.key;
-      this.classList.add('flash');
-      var self = this;
-      setTimeout(function(){ self.classList.remove('flash'); }, 300);
-      fetch('/steadwing/simulate', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({scenario: key})
-      }).catch(function(){});
+  // ─── Build an OpenAlerts event row ──────────────────────
+  function buildEvRow(ev,depth){
+    var div=document.createElement('div');
+    div.className='row'+(depth===0?' standalone':depth>1?' deep':'');
+    var c=cat(ev.type),oc=ev.outcome||'',m=ev.meta||{};
+    var ft=ev.type||'?';
+    if(ft==='custom'&&m.openclawEventType==='session.state')ft='session.'+(m.sessionState||'state');
+    if(ft==='custom'&&m.openclawEventType==='message_sent')ft='msg.delivered';
+
+    var h='<div class="r-main">';
+    h+='<span class="r-time">'+fT(ev.ts)+'</span>';
+    h+='<span class="r-type '+c+'">'+esc(ft)+'</span>';
+    if(oc)h+='<span class="r-oc '+oc+'">'+(oc==='success'?'\\u2713':oc==='error'?'\\u2717':'\\u25CB')+' '+oc+'</span>';
+    h+='<span class="r-pills">';
+    if(m.toolName)h+='<span class="p t">'+esc(String(m.toolName))+'</span>';
+    if(ev.durationMs!=null)h+='<span class="p d">'+fD(ev.durationMs)+'</span>';
+    if(ev.tokenCount!=null)h+='<span class="p tk">'+ev.tokenCount+' tok</span>';
+    if(ev.queueDepth!=null)h+='<span class="p q">q='+ev.queueDepth+'</span>';
+    if(m.model)h+='<span class="p m">'+esc(String(m.model))+'</span>';
+    if(ev.channel)h+='<span class="p ch">'+esc(ev.channel)+'</span>';
+    if(m.messageCount!=null)h+='<span class="p">'+m.messageCount+' msgs</span>';
+    if(m.source&&String(m.source)!=='simulate')h+='<span class="p s">'+esc(String(m.source))+'</span>';
+    h+='</span></div>';
+
+    var ds=[];
+    if(ev.error)ds.push('<span class="err">'+esc(ev.error)+'</span>');
+    if(ev.ageMs!=null)ds.push('stuck '+fD(ev.ageMs));
+    if(m.sessionState)ds.push('<span class="sc">'+(m.previousState||'?')+' \\u2192 '+m.sessionState+'</span>');
+    if(m.provider)ds.push('<span class="dim">provider: '+esc(String(m.provider))+'</span>');
+    if(m.to)ds.push('<span class="dim">to: '+esc(String(m.to))+'</span>');
+    if(ev.sessionKey&&depth===0)ds.push('<span class="dim">session: '+esc(ev.sessionKey.slice(0,12))+'</span>');
+    if(ds.length)h+='<div class="r-det">'+ds.join(' \\u00B7 ')+'</div>';
+
+    div.innerHTML=h;return div;
+  }
+
+  // ─── Build an OpenClaw log row ──────────────────────
+  function buildLogRow(entry,depth){
+    var div=document.createElement('div');
+    div.className='row log'+(depth===0?' standalone':depth>1?' deep':'');
+    var h='<div class="r-main">';
+    h+='<span class="r-time">'+fT(entry.tsMs||entry.ts)+'</span>';
+    h+='<span class="r-lvl '+esc(entry.level)+'">'+esc(entry.level)+'</span>';
+    h+='<span class="r-sub" title="'+esc(entry.subsystem)+'">'+subIcon(entry.subsystem)+' '+esc(entry.subsystem)+'</span>';
+    h+='<span class="r-msg">'+esc(entry.message)+'</span>';
+    h+='</div>';
+
+    // Show parsed key=value pairs if any
+    var kvs=entry.extra||{};
+    var kvParts=[];
+    if(kvs.sessionId)kvParts.push('<span>session='+esc(kvs.sessionId.slice(0,12))+'..</span>');
+    if(kvs.runId)kvParts.push('<span>run='+esc(kvs.runId.slice(0,12))+'..</span>');
+    if(kvs.durationMs)kvParts.push('<span>duration='+fD(parseInt(kvs.durationMs))+'</span>');
+    if(kvs.totalActive)kvParts.push('<span>active='+esc(kvs.totalActive)+'</span>');
+    if(kvs.queueDepth)kvParts.push('<span>queue='+esc(kvs.queueDepth)+'</span>');
+    if(kvs.prev)kvParts.push('<span>'+esc(kvs.prev)+' \\u2192 '+esc(kvs.new||'?')+'</span>');
+    if(kvParts.length)h+='<div class="r-kvs">'+kvParts.join('')+'</div>';
+
+    div.innerHTML=h;return div;
+  }
+
+  // ─── Ingest OpenAlerts event ──────────────────────
+  function addEvent(ev){
+    total++;evCnt.textContent=total;emptyMsg.style.display='none';
+    if(paused)return;
+    var sid=ev.sessionKey||ev.agentId;
+    if(sid&&(flows[sid]||ev.type==='agent.start'||ev.type==='session.start'||ev.type==='custom')){
+      var f=getFlow(sid,ev);f.n++;
+      if(ev.tokenCount)f.tok+=ev.tokenCount;
+      if(ev.type==='tool.call'||ev.type==='tool.error')f.tools++;
+      if(ev.type==='llm.call')f.llms++;
+      if(ev.outcome==='error')f.err=true;
+      var depth=1;
+      if(ev.type==='tool.call'||ev.type==='tool.error'||ev.type==='llm.call'||ev.type==='llm.token_usage')depth=2;
+      f.body.appendChild(buildEvRow(ev,depth));
+      if(evList.firstChild!==f.el)evList.insertBefore(f.el,evList.firstChild);
+      if(ev.type==='agent.end'||ev.type==='session.end'){if(ev.durationMs)f.dur=ev.durationMs;updFlow(f,f.err?'error':'done')}
+      else if(ev.type==='agent.error'){f.err=true;if(ev.durationMs)f.dur=ev.durationMs;updFlow(f,'error')}
+      else updFlow(f,f.st);
+      f.el.scrollIntoView({block:'nearest',behavior:'smooth'});
+      return;
+    }
+    var row=buildEvRow(ev,0);
+    if(evList.firstChild&&evList.firstChild!==emptyMsg)evList.insertBefore(row,evList.firstChild);
+    else evList.appendChild(row);
+    trimStandalone();
+  }
+
+  // ─── Ingest OpenClaw log entry (from log tailer) ──────────────────────
+  function addLogEntry(entry){
+    total++;evCnt.textContent=total;emptyMsg.style.display='none';
+    if(paused)return;
+    var sid=entry.sessionId;
+    if(sid&&flows[sid]){
+      var f=flows[sid];f.n++;
+      f.body.appendChild(buildLogRow(entry,1));
+      if(evList.firstChild!==f.el)evList.insertBefore(f.el,evList.firstChild);
+      updFlow(f,f.st);
+      f.el.scrollIntoView({block:'nearest',behavior:'smooth'});
+      return;
+    }
+    // If log has a sessionId but no flow exists yet, create one
+    if(sid){
+      var f=getFlow(sid,entry);f.n++;
+      f.body.appendChild(buildLogRow(entry,1));
+      updFlow(f,f.st);
+      f.el.scrollIntoView({block:'nearest',behavior:'smooth'});
+      return;
+    }
+    // Standalone log entry
+    var row=buildLogRow(entry,0);
+    if(evList.firstChild&&evList.firstChild!==emptyMsg)evList.insertBefore(row,evList.firstChild);
+    else evList.appendChild(row);
+    trimStandalone();
+  }
+
+  function trimStandalone(){
+    var all=evList.querySelectorAll('.row.standalone');
+    while(all.length>MAX_STANDALONE){all[all.length-1].remove();all=evList.querySelectorAll('.row.standalone')}
+  }
+
+  // ─── Stale flow cleanup ──────────────────────
+  setInterval(function(){
+    var now=Date.now();
+    for(var k in flows){
+      var f=flows[k];
+      if(f.st==='active'&&now-f.startTs>STALE_MS)updFlow(f,'done');
+      if(f.st!=='active'&&now-f.startTs>600000){f.el.remove();delete flows[k];var i=flowOrd.indexOf(k);if(i>=0)flowOrd.splice(i,1)}
+    }
+    while(flowOrd.length>MAX_FLOWS){var old=flowOrd.shift();if(flows[old]){flows[old].el.remove();delete flows[old]}}
+  },30000);
+
+  // ─── Alerts ──────────────────────
+  function addAlert(a){
+    alEmpty.style.display='none';
+    var d=document.createElement('div');d.className='al';
+    d.innerHTML='<div class="al-sev '+(a.severity||'error')+'">['+((a.severity||'ERROR').toUpperCase())+'] '+esc(a.ruleId||'')+'</div><div class="al-title">'+esc(a.title||'')+'</div><div class="al-detail">'+esc(a.detail||'')+'</div><div class="al-time">'+fT(a.ts)+'</div>';
+    alList.insertBefore(d,alList.firstChild);
+    while(alList.children.length>MAX_ALERTS+1)alList.removeChild(alList.lastChild);
+  }
+
+  evList.addEventListener('mouseenter',function(){paused=true});
+  evList.addEventListener('mouseleave',function(){paused=false});
+
+  // ─── Tabs ──────────────────────
+  document.querySelectorAll('.tab').forEach(function(t){
+    t.addEventListener('click',function(){
+      document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active')});
+      document.querySelectorAll('.tab-content').forEach(function(x){x.classList.remove('active')});
+      t.classList.add('active');
+      var tgt=$('tab-'+t.dataset.tab);if(tgt)tgt.classList.add('active');
+      if(t.dataset.tab==='logs')refreshLogs();
+      if(t.dataset.tab==='health')refreshHealth();
     });
   });
 
-  // ── Boot ────────────────────────────────────────────────
-  connectSSE();
-  pollState();
-  setInterval(pollState, 4000);
+  // ─── SSE (OpenAlerts events + OpenClaw log tailing) ──────────────────────
+  function connectSSE(){
+    if(evSrc)evSrc.close();
+    evSrc=new EventSource('/openalerts/events');
+    evSrc.addEventListener('openalerts',function(e){try{addEvent(JSON.parse(e.data))}catch(_){}});
+    evSrc.addEventListener('oclog',function(e){try{addLogEntry(JSON.parse(e.data))}catch(_){}});
+    evSrc.onopen=function(){$('sDot').className='dot live';$('sConn').textContent='live'};
+    evSrc.onerror=function(){$('sDot').className='dot dead';$('sConn').textContent='reconnecting...'};
+  }
+
+  // ─── State polling ──────────────────────
+  var prevAl={};
+  function pollState(){
+    fetch('/openalerts/state').then(function(r){return r.json()}).then(function(s){
+      if(s.stats){
+        $('sMsgs').textContent=s.stats.messagesProcessed||0;
+        $('sErr').textContent=(s.stats.messageErrors||0)+(s.stats.webhookErrors||0)+(s.stats.toolErrors||0);
+        $('sTools').textContent=s.stats.toolCalls||0;
+        $('sAgents').textContent=s.stats.agentStarts||0;
+      }
+      if(s.uptimeMs!=null)$('sUp').textContent=fU(s.uptimeMs);
+      if(s.recentAlerts){
+        var nids={};
+        for(var i=0;i<s.recentAlerts.length;i++){var a=s.recentAlerts[i];nids[a.id]=true;if(!prevAl[a.id])addAlert(a)}
+        prevAl=nids;
+      }
+      if(s.rules){
+        var sec=$('rulesEl'),h='<h3>Rules</h3>';
+        for(var j=0;j<s.rules.length;j++){var r=s.rules[j];var f=r.status==='fired';h+='<div class="rl"><span class="rl-d '+(f?'fired':'ok')+'"></span><span>'+esc(r.id)+'</span><span class="rl-s">'+(f?'FIRING':'OK')+'</span></div>'}
+        sec.innerHTML=h;
+      }
+      window._ss=s;
+    }).catch(function(){});
+  }
+
+  // ─── Logs tab ──────────────────────
+  var lastLogLineCount=0;
+  function refreshLogs(){
+    fetch('/openalerts/logs?limit=300').then(function(r){return r.json()}).then(function(data){
+      var list=$('logList');
+      var entries=data.entries||[];
+      var fSub=$('lF').value, fLev=$('lL').value, fSrch=$('lS').value.toLowerCase();
+      var lp={'DEBUG':0,'INFO':1,'WARN':2,'ERROR':3};
+      var minLev=lp[fLev]||0;
+
+      // Only re-render if new entries
+      if(entries.length===lastLogLineCount&&!fSub&&!fLev&&!fSrch)return;
+      lastLogLineCount=entries.length;
+      list.innerHTML='';
+      if(!entries.length){list.innerHTML='<div class="empty-msg">No logs found.</div>';return}
+
+      for(var i=0;i<entries.length;i++){
+        var e=entries[i];
+        if(fSub&&e.subsystem.indexOf(fSub)<0)continue;
+        if(fLev&&(lp[e.level]||0)<minLev)continue;
+        if(fSrch&&e.message.toLowerCase().indexOf(fSrch)<0&&e.subsystem.toLowerCase().indexOf(fSrch)<0)continue;
+        var row=document.createElement('div');row.className='log-e';
+        row.innerHTML='<span class="log-ts">'+fT(e.tsMs||e.ts)+'</span><span class="log-lv '+esc(e.level)+'">'+esc(e.level)+'</span><span class="log-su">'+esc(e.subsystem)+'</span><span class="log-mg">'+esc(e.message)+'</span>';
+        list.appendChild(row);
+      }
+      list.scrollTop=list.scrollHeight;
+    }).catch(function(){$('logList').innerHTML='<div class="empty-msg">Failed to load.</div>'});
+  }
+  $('lR').addEventListener('click',refreshLogs);
+  $('lF').addEventListener('change',refreshLogs);
+  $('lL').addEventListener('change',refreshLogs);
+  var sDb;$('lS').addEventListener('input',function(){clearTimeout(sDb);sDb=setTimeout(refreshLogs,300)});
+  setInterval(function(){if($('tab-logs').classList.contains('active')&&$('lA').checked)refreshLogs()},3000);
+
+  // ─── Health tab ──────────────────────
+  function refreshHealth(){
+    var s=window._ss;if(!s){pollState();setTimeout(refreshHealth,1000);return}
+    var h=$('hC'),st=s.stats||{},up=s.uptimeMs||0;
+    var html='';
+    html+='<div class="h-sec"><h3>System</h3><div class="h-grid">';
+    html+=hCard('Uptime',fU(up),'ok')+hCard('SSE Listeners',s.busListeners||0,'ok');
+    var te=(st.messageErrors||0)+(st.webhookErrors||0)+(st.toolErrors||0)+(st.agentErrors||0);
+    html+=hCard('Total Errors',te,te>0?'bad':'ok')+hCard('Platform',s.platformConnected?'Connected':'Off',s.platformConnected?'ok':'');
+    html+='</div></div>';
+    html+='<div class="h-sec"><h3>Stats</h3><table class="h-tbl">';
+    html+=hTr('Messages Processed',st.messagesProcessed||0)+hTr('Message Errors',st.messageErrors||0)+hTr('Webhook Errors',st.webhookErrors||0);
+    html+=hTr('Tool Calls',st.toolCalls||0)+hTr('Tool Errors',st.toolErrors||0)+hTr('Agent Starts',st.agentStarts||0)+hTr('Agent Errors',st.agentErrors||0)+hTr('Sessions',st.sessionsStarted||0);
+    html+='</table></div>';
+    html+='<div class="h-sec"><h3>Rules</h3><table class="h-tbl">';
+    if(s.rules)for(var i=0;i<s.rules.length;i++){var r=s.rules[i];html+='<tr><td>'+esc(r.id)+'</td><td>'+(r.status==='fired'?'<span style="color:#f85149;font-weight:700">FIRING</span>':'<span style="color:#3fb950">OK</span>')+'</td></tr>'}
+    html+='</table></div>';
+    if(s.recentAlerts&&s.recentAlerts.length){
+      html+='<div class="h-sec"><h3>Recent Alerts ('+s.recentAlerts.length+')</h3><table class="h-tbl">';
+      for(var j=0;j<s.recentAlerts.length;j++){var a=s.recentAlerts[j];html+='<tr><td style="color:'+(a.severity==='critical'?'#ff7b72':a.severity==='warn'?'#d29922':'#f85149')+'">['+((a.severity||'?').toUpperCase())+'] '+esc(a.ruleId||'')+'</td><td>'+esc(a.title||'')+' \\u2014 '+esc(a.detail||'')+' ('+fT(a.ts)+')</td></tr>'}
+      html+='</table></div>';
+    }
+    h.innerHTML=html;
+  }
+  function hCard(l,v,c){return'<div class="h-card"><div class="lb">'+esc(l)+'</div><div class="vl '+(c||'')+'">'+esc(String(v))+'</div></div>'}
+  function hTr(l,v){return'<tr><td>'+esc(l)+'</td><td><b>'+esc(String(v))+'</b></td></tr>'}
+
+  // ─── Boot ──────────────────────
+  connectSSE();pollState();setInterval(pollState,4000);
 })();
 </script>
 </body>

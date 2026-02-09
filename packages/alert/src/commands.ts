@@ -1,5 +1,5 @@
-import type { SteadwingEngine } from "@steadwing/core";
-import { formatAlertsOutput, formatHealthOutput, type AlertEvent } from "@steadwing/core";
+import type { OpenAlertsEngine } from "@steadwing/openalerts-core";
+import { formatAlertsOutput, formatHealthOutput, type AlertEvent } from "@steadwing/openalerts-core";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 
 type PluginCommandDef = {
@@ -11,11 +11,11 @@ type PluginCommandDef = {
 };
 
 // Engine reference, set when service starts
-let _engine: SteadwingEngine | null = null;
+let _engine: OpenAlertsEngine | null = null;
 let _api: OpenClawPluginApi | null = null;
 
 /** Called by service to wire commands to the live engine instance. */
-export function bindEngine(engine: SteadwingEngine, api: OpenClawPluginApi): void {
+export function bindEngine(engine: OpenAlertsEngine, api: OpenClawPluginApi): void {
   _engine = engine;
   _api = api;
 }
@@ -31,13 +31,13 @@ export function createMonitorCommands(api: OpenClawPluginApi): PluginCommandDef[
     },
     {
       name: "alerts",
-      description: "Show recent alerts from Steadwing Monitor",
+      description: "Show recent alerts from OpenAlerts Monitor",
       acceptsArgs: false,
       handler: () => handleAlerts(),
     },
     {
       name: "dashboard",
-      description: "Get link to the real-time Steadwing monitoring dashboard",
+      description: "Get link to the real-time OpenAlerts monitoring dashboard",
       acceptsArgs: false,
       handler: () => handleDashboard(),
     },
@@ -46,7 +46,7 @@ export function createMonitorCommands(api: OpenClawPluginApi): PluginCommandDef[
 
 function handleHealth(): { text: string } {
   if (!_engine) {
-    return { text: "Steadwing Alert not initialized yet. Wait for gateway startup." };
+    return { text: "OpenAlerts not initialized yet. Wait for gateway startup." };
   }
 
   const channelActivity = getChannelActivity();
@@ -69,7 +69,7 @@ function handleHealth(): { text: string } {
 
 function handleAlerts(): { text: string } {
   if (!_engine) {
-    return { text: "Steadwing Alert not initialized yet." };
+    return { text: "OpenAlerts not initialized yet." };
   }
 
   const events = _engine.getRecentEvents(100);
@@ -78,10 +78,10 @@ function handleAlerts(): { text: string } {
 
 function handleDashboard(): { text: string } {
   if (!_engine) {
-    return { text: "Steadwing Alert not initialized yet. Wait for gateway startup." };
+    return { text: "OpenAlerts not initialized yet. Wait for gateway startup." };
   }
   return {
-    text: "Steadwing Dashboard: http://127.0.0.1:18789/steadwing\n\nOpen in your browser to see real-time events, alerts, and rule status.",
+    text: "OpenAlerts Dashboard: http://127.0.0.1:18789/openalerts\n\nOpen in your browser to see real-time events, alerts, and rule status.",
   };
 }
 

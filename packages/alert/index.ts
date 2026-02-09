@@ -1,4 +1,4 @@
-import { SteadwingEngine } from "@steadwing/core";
+import { OpenAlertsEngine } from "@steadwing/openalerts-core";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { onDiagnosticEvent } from "openclaw/plugin-sdk";
 import {
@@ -18,8 +18,8 @@ import {
 import { bindEngine, createMonitorCommands } from "./src/commands.js";
 import { createDashboardHandler, closeDashboardConnections } from "./src/dashboard-routes.js";
 
-const PLUGIN_ID = "alert";
-const LOG_PREFIX = "steadwing-alert";
+const PLUGIN_ID = "openalerts";
+const LOG_PREFIX = "openalerts";
 
 type OpenClawPluginService = {
   id: string;
@@ -33,7 +33,7 @@ type PluginLogger = {
   error: (msg: string) => void;
 };
 
-let engine: SteadwingEngine | null = null;
+let engine: OpenAlertsEngine | null = null;
 let unsubDiagnostic: (() => void) | null = null;
 
 function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
@@ -49,7 +49,7 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
       const channels = target ? [new OpenClawAlertChannel(api, target)] : [];
 
       // Create and start the universal engine
-      engine = new SteadwingEngine({
+      engine = new OpenAlertsEngine({
         stateDir: ctx.stateDir,
         config,
         channels,
@@ -124,17 +124,14 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
           ));
         });
 
-        // Message delivery tracking (failed delivery = infra.error)
+        // Message delivery tracking (all messages — success and failure)
         apiOn("message_sent", (data, hookCtx) => {
           if (!engine) return;
           const d = data as { to: string; content: string; success: boolean; error?: string };
-          // Only ingest failures or if we want full tracking
-          if (!d.success) {
-            engine.ingest(translateMessageSentHook(d, {
-              channel: (hookCtx as Record<string, unknown>).channel as string | undefined,
-              sessionId: (hookCtx as Record<string, unknown>).sessionId as string | undefined,
-            }));
-          }
+          engine.ingest(translateMessageSentHook(d, {
+            channel: (hookCtx as Record<string, unknown>).channel as string | undefined,
+            sessionId: (hookCtx as Record<string, unknown>).sessionId as string | undefined,
+          }));
         });
 
         // Gateway lifecycle
@@ -177,7 +174,7 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 
 const plugin = {
   id: PLUGIN_ID,
-  name: "Steadwing Alert",
+  name: "OpenAlerts",
   description: "Alerting & monitoring — texts you when your bot is sick",
 
   register(api: OpenClawPluginApi) {
@@ -187,7 +184,7 @@ const plugin = {
       api.registerCommand(cmd);
     }
 
-    // Register dashboard HTTP routes under /steadwing*
+    // Register dashboard HTTP routes under /openalerts*
     api.registerHttpHandler(createDashboardHandler(() => engine));
   },
 };

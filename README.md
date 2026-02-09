@@ -101,13 +101,13 @@ Alternatively, point to the path directly in `openclaw.json`:
 
 ### 3. Configure Alerts
 
-Add alert settings under `plugins.entries.alert.config` in your `openclaw.json`:
+Add alert settings under `plugins.entries.openalerts.config` in your `openclaw.json`:
 
 ```jsonc
 {
 	"plugins": {
 		"entries": {
-			"alert": {
+			"openalerts": {
 				"enabled": true,
 				"config": {
 					"alertChannel": "telegram", // telegram | discord | slack | whatsapp | signal
@@ -129,7 +129,7 @@ openclaw gateway stop && openclaw gateway run
 
 # Check it loaded
 openclaw plugins list
-# Should show: alert (OpenAlerts) — enabled
+# Should show: openalerts (OpenAlerts) — enabled
 ```
 
 Send `/health` to your bot — you should get a live status summary back (zero LLM tokens consumed).
@@ -252,13 +252,13 @@ All commands are handled directly by the plugin — zero LLM tokens consumed.
 
 ## Configuration
 
-Full configuration reference under `plugins.entries.alert.config` in `openclaw.json`:
+Full configuration reference under `plugins.entries.openalerts.config` in `openclaw.json`:
 
 ```jsonc
 {
 	"plugins": {
 		"entries": {
-			"alert": {
+			"openalerts": {
 				"enabled": true,
 				"config": {
 					// Where to send alerts (uses OpenClaw's own channel system)
@@ -296,10 +296,10 @@ Full configuration reference under `plugins.entries.alert.config` in `openclaw.j
 OpenAlerts is a monorepo with a shared core engine and framework-specific plugin adapters:
 
 ```
-@steadwing/core             Zero external dependencies
+@steadwing/openalerts-core             Zero external dependencies
   |                          Rules engine, evaluator, event bus, state store, formatter
   |
-@steadwing/alert            OpenClaw plugin
+@steadwing/openalerts            OpenClaw plugin
                              Translates 12 diagnostic events + 7 plugin hooks
                              Routes alerts through OpenClaw's channel system
                              Serves the live monitoring dashboard
@@ -325,7 +325,7 @@ OpenAlerts persists all events and alerts to a JSONL file on disk:
 ```
 openalerts/
   packages/
-    core/                 @steadwing/core         Shared engine (zero dependencies)
+    core/                 @steadwing/openalerts-core         Shared engine (zero dependencies)
       src/
         engine.ts           OpenAlertsEngine (start, stop, ingest, bus, state)
         rules.ts            7 built-in alert rule definitions
@@ -337,7 +337,7 @@ openalerts/
         platform.ts         Optional cloud sync
         types.ts            All TypeScript type definitions
 
-    alert/                @steadwing/alert        OpenClaw plugin
+    alert/                @steadwing/openalerts        OpenClaw plugin
       index.ts              Plugin entry — service registration, hook wiring
       src/
         adapter.ts            Event translation (19 sources), OpenClawAlertChannel
@@ -368,10 +368,10 @@ The monorepo uses npm workspaces. Build order matters — core must build before
 
 **New framework plugins:**
 
-- [ ] `@openalerts/nanobot` — Nanobot adapter
-- [ ] `@openalerts/crewai` — CrewAI adapter
-- [ ] `@openalerts/langchain` — LangChain adapter
-- [ ] `@openalerts/mastra` — Mastra adapter
+- [ ] `@steadwing/openalerts-nanobot` — Nanobot adapter
+- [ ] `@steadwing/openalerts-crewai` — CrewAI adapter
+- [ ] `@steadwing/openalerts-langchain` — LangChain adapter
+- [ ] `@steadwing/openalerts-mastra` — Mastra adapter
 
 Each new plugin will be a thin adapter in this same repo, translating framework-specific events into the shared OpenAlerts event schema. The core engine, rules, and dashboard are reused across all adapters.
 

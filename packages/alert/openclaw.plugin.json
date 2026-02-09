@@ -1,57 +1,57 @@
 {
-  "id": "alert",
-  "configSchema": {
-    "type": "object",
-    "additionalProperties": false,
-    "properties": {
-      "apiKey": { "type": "string" },
-      "alertChannel": { "type": "string" },
-      "alertTo": { "type": "string" },
-      "alertAccountId": { "type": "string" },
-      "cooldownMinutes": { "type": "number", "minimum": 1, "maximum": 1440 },
-      "maxLogSizeKb": { "type": "number", "minimum": 64, "maximum": 10240 },
-      "maxLogAgeDays": { "type": "number", "minimum": 1, "maximum": 90 },
-      "quiet": { "type": "boolean" },
-      "rules": {
-        "type": "object",
-        "additionalProperties": {
-          "type": "object",
-          "properties": {
-            "enabled": { "type": "boolean" },
-            "threshold": { "type": "number" },
-            "cooldownMinutes": { "type": "number" }
-          },
-          "additionalProperties": false
-        }
-      }
-    }
-  },
-  "uiHints": {
-    "apiKey": {
-      "label": "Steadwing API Key",
-      "sensitive": true,
-      "help": "Optional. Get from app.steadwing.dev. Enables platform diagnosis & dashboard."
-    },
-    "alertChannel": {
-      "label": "Alert Channel",
-      "help": "telegram, discord, slack, etc. Auto-detected if blank."
-    },
-    "alertTo": {
-      "label": "Alert To",
-      "help": "Chat/user ID to send alerts to. Auto-detected from allowFrom if blank."
-    },
-    "alertAccountId": {
-      "label": "Account ID",
-      "help": "For multi-account setups. Default account used if blank.",
-      "advanced": true
-    },
-    "cooldownMinutes": {
-      "label": "Alert Cooldown",
-      "help": "Minimum minutes between repeated alerts of the same type. Default: 15."
-    },
-    "quiet": {
-      "label": "Quiet Mode",
-      "help": "Log alerts to file only — no messages sent to your channels."
-    }
-  }
+	"id": "openalerts",
+	"configSchema": {
+		"type": "object",
+		"additionalProperties": false,
+		"properties": {
+			"apiKey": { "type": "string" },
+			"alertChannel": { "type": "string" },
+			"alertTo": { "type": "string" },
+			"alertAccountId": { "type": "string" },
+			"cooldownMinutes": { "type": "number", "minimum": 1, "maximum": 1440 },
+			"maxLogSizeKb": { "type": "number", "minimum": 64, "maximum": 10240 },
+			"maxLogAgeDays": { "type": "number", "minimum": 1, "maximum": 90 },
+			"quiet": { "type": "boolean" },
+			"rules": {
+				"type": "object",
+				"additionalProperties": {
+					"type": "object",
+					"properties": {
+						"enabled": { "type": "boolean" },
+						"threshold": { "type": "number" },
+						"cooldownMinutes": { "type": "number" }
+					},
+					"additionalProperties": false
+				}
+			}
+		}
+	},
+	"uiHints": {
+		"apiKey": {
+			"label": "OpenAlerts API Key",
+			"sensitive": true,
+			"help": "Optional. Get from app.openalerts.dev. Enables platform diagnosis & dashboard."
+		},
+		"alertChannel": {
+			"label": "Alert Channel",
+			"help": "telegram, discord, slack, etc. Auto-detected if blank."
+		},
+		"alertTo": {
+			"label": "Alert To",
+			"help": "Chat/user ID to send alerts to. Auto-detected from allowFrom if blank."
+		},
+		"alertAccountId": {
+			"label": "Account ID",
+			"help": "For multi-account setups. Default account used if blank.",
+			"advanced": true
+		},
+		"cooldownMinutes": {
+			"label": "Alert Cooldown",
+			"help": "Minimum minutes between repeated alerts of the same type. Default: 15."
+		},
+		"quiet": {
+			"label": "Quiet Mode",
+			"help": "Log alerts to file only — no messages sent to your channels."
+		}
+	}
 }

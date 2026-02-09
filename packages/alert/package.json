@@ -1,0 +1,22 @@
+{
+  "name": "@steadwing/alert",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Steadwing monitoring for OpenClaw — texts you when your bot is sick.",
+  "author": "Steadwing",
+  "license": "MIT",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "dependencies": {
+    "@steadwing/core": "0.1.0"
+  },
+  "peerDependencies": {
+    "openclaw": "*"
+  },
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  }
+}

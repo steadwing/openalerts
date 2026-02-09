@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "packages/core/src/**/*.ts",
+    "packages/node/src/**/*.ts",
+    "packages/alert/index.ts",
+    "packages/alert/src/**/*.ts"
+  ]
+}

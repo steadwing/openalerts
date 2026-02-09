@@ -1,0 +1,20 @@
+{
+	"name": "steadwing-alerts",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"description": "Steadwing — universal monitoring & alerting for AI agents",
+	"author": "Steadwing",
+	"license": "MIT",
+	"workspaces": [
+		"packages/*"
+	],
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"build": "tsc -p packages/core && tsc -p packages/node && tsc -p packages/alert",
+		"clean": "node -e \"const fs=require('fs');['core','node','alert'].forEach(p=>{try{fs.rmSync('packages/'+p+'/dist',{recursive:true,force:true})}catch{}})\""
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3"
+	}
+}

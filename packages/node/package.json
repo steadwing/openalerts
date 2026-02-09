@@ -1,0 +1,17 @@
+{
+  "name": "@steadwing/node",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Steadwing monitoring SDK for Node.js — init() + captureEvent() + built-in alert channels.",
+  "author": "Steadwing",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./otel": "./src/otel/receiver.ts"
+  },
+  "dependencies": {
+    "@steadwing/core": "0.1.0"
+  }
+}

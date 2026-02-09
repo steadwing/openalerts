@@ -53,12 +53,20 @@ function getRuleStatuses(engine: OpenAlertsEngine): Array<{ id: string; status: 
 
 // ─── OpenClaw log file ──────────────────────────────────────────────────────
 
+function getOpenClawLogDir(): string {
+  // Use platform-appropriate default: C:\tmp\openclaw on Windows, /tmp/openclaw elsewhere
+  if (process.platform === "win32") {
+    return join("C:", "tmp", "openclaw");
+  }
+  return join("/tmp", "openclaw");
+}
+
 function getOpenClawLogPath(): string {
   const d = new Date();
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  return join("C:", "tmp", "openclaw", `openclaw-${y}-${m}-${day}.log`);
+  return join(getOpenClawLogDir(), `openclaw-${y}-${m}-${day}.log`);
 }
 
 interface ParsedLogEntry {
@@ -70,6 +78,9 @@ interface ParsedLogEntry {
   sessionId?: string;
   runId?: string;
   durationMs?: number;
+  filePath?: string;
+  method?: string;
+  hostname?: string;
   extra: Record<string, string>;
 }
 
@@ -111,6 +122,9 @@ function parseLogLine(line: string): ParsedLogEntry | null {
       sessionId: extra.sessionId,
       runId: extra.runId,
       durationMs: extra.durationMs ? parseInt(extra.durationMs, 10) : undefined,
+      filePath: obj._meta?.path?.fileNameWithLine,
+      method: obj._meta?.path?.method,
+      hostname: obj._meta?.hostname,
       extra,
     };
   } catch {
@@ -269,6 +283,11 @@ export function createDashboardHandler(getEngine: () => OpenAlertsEngine | null)
 
       const body = JSON.stringify({
         uptimeMs: Date.now() - state.startedAt,
+        startedAt: state.startedAt,
+        lastHeartbeatTs: state.lastHeartbeatTs,
+        hourlyAlerts: state.hourlyAlerts,
+        stuckSessions: state.stats.stuckSessions,
+        lastResetTs: state.stats.lastResetTs,
         stats: state.stats,
         busListeners: engine.bus.size,
         platformConnected: engine.platformConnected,
@@ -298,7 +317,8 @@ export function createDashboardHandler(getEngine: () => OpenAlertsEngine | null)
         "Cache-Control": "no-cache",
         "Access-Control-Allow-Origin": "*",
       });
-      res.end(JSON.stringify({ entries, logFile: getOpenClawLogPath() }));
+      const subsystems = [...new Set(entries.map(e => e.subsystem).filter(Boolean))].sort();
+      res.end(JSON.stringify({ entries, logFile: getOpenClawLogPath(), subsystems }));
       return true;
     }
 

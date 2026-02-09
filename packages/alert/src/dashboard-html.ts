@@ -143,6 +143,45 @@ export function getDashboardHtml(): string {
   .h-tbl{width:100%;border-collapse:collapse}
   .h-tbl td{padding:3px 8px;font-size:11px;border-bottom:1px solid #161b22}
   .h-tbl td:first-child{color:#8b949e;width:140px}
+  .h-tbl th{padding:3px 8px;font-size:10px;color:#8b949e;text-align:left;border-bottom:1px solid #30363d;font-weight:600}
+
+  /* ── Expandable event detail ──────────────────── */
+  .row.expandable{cursor:pointer}
+  .row.expandable:hover{background:#161b22}
+  .ev-detail{background:#0d1117;border:1px solid #21262d;border-radius:4px;margin:4px 10px 6px 24px;padding:8px 10px;display:none;animation:fi 0.15s ease}
+  .ev-detail.open{display:block}
+  .ev-detail h4{font-size:10px;color:#58a6ff;text-transform:uppercase;letter-spacing:0.6px;margin:6px 0 3px;font-weight:600}
+  .ev-detail h4:first-child{margin-top:0}
+  .ev-detail .dv{display:flex;gap:4px;align-items:baseline;font-size:11px;padding:1px 0}
+  .ev-detail .dk{color:#8b949e;min-width:90px;flex-shrink:0}
+  .ev-detail .dd{color:#c9d1d9;word-break:break-all}
+  .ev-detail .dd .cp-btn{font-size:9px;color:#484f58;cursor:pointer;margin-left:4px;border:1px solid #30363d;background:#161b22;padding:0 3px;border-radius:2px;font-family:inherit}
+  .ev-detail .dd .cp-btn:hover{color:#c9d1d9;border-color:#484f58}
+  .ev-detail .err-block{background:#1a0a0a;border:1px solid #3d1a1a;border-radius:3px;padding:6px 8px;color:#f85149;font-size:11px;max-height:120px;overflow-y:auto;white-space:pre-wrap;word-break:break-all}
+  .ev-detail .meta-grid{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:11px}
+  .ev-detail .meta-grid .mk{color:#8b949e;text-align:right}
+  .ev-detail .meta-grid .mv{color:#c9d1d9;word-break:break-all}
+
+  /* Inline row indicators */
+  .sev-dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
+  .sev-dot.info{background:#58a6ff} .sev-dot.warn{background:#d29922} .sev-dot.error{background:#f85149} .sev-dot.critical{background:#ff7b72}
+  .p.cost{color:#3fb950;background:#1a3a2a} .p.agent{color:#d2a8ff;background:#2a1f3d}
+
+  /* ── Flow summary bar ──────────────────── */
+  .flow-summary{background:#0d1117;padding:4px 10px;font-size:10px;color:#8b949e;display:flex;flex-wrap:wrap;gap:4px 12px;border-bottom:1px solid #21262d;align-items:center}
+  .flow-summary .fs-v{color:#c9d1d9;font-weight:600}
+  .flow-summary .fs-err{color:#f85149;font-weight:600}
+  .flow-summary .fs-tools{color:#bc8cff}
+  .flow-summary .fs-agent{color:#d2a8ff}
+
+  /* ── Expandable log row ──────────────────── */
+  .log-e{cursor:pointer;transition:background 0.1s}
+  .log-detail{display:none;background:#0d1117;border:1px solid #21262d;border-radius:3px;margin:2px 12px 4px 12px;padding:6px 8px;animation:fi 0.12s ease}
+  .log-detail.open{display:block}
+  .log-detail .ld-grid{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;font-size:10px}
+  .log-detail .ld-grid .lk{color:#8b949e;text-align:right}
+  .log-detail .ld-grid .lv{color:#c9d1d9;word-break:break-all}
+  .log-detail .ld-file{color:#484f58;font-size:10px;margin-top:3px}
 </style>
 </head>
 <body>
@@ -181,7 +220,7 @@ export function getDashboardHtml(): string {
       <div class="logs-t">
         <div class="log-bar">
           <label>Sub:</label>
-          <select id="lF"><option value="">All</option><option value="diagnostic">diagnostic</option><option value="plugins">plugins</option><option value="agent">agent</option><option value="gateway">gateway</option></select>
+          <select id="lF"><option value="">All</option></select>
           <label>Level:</label>
           <select id="lL"><option value="">All</option><option value="INFO">INFO+</option><option value="WARN">WARN+</option><option value="ERROR">ERROR</option></select>
           <input type="text" id="lS" placeholder="Search..." style="width:120px">
@@ -207,8 +246,17 @@ export function getDashboardHtml(): string {
   function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
   function cat(t){if(!t)return'custom';var p=t.split('.')[0];return['llm','tool','agent','session','infra','watchdog'].indexOf(p)>=0?p:'custom'}
   function fT(ts){if(!ts)return'';var d=typeof ts==='number'?new Date(ts):new Date(ts);return d.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+  function fISO(ts){if(!ts)return'';return new Date(typeof ts==='number'?ts:Date.parse(ts)).toISOString()}
   function fD(ms){if(ms==null)return'';if(ms<1000)return ms+'ms';if(ms<60000)return(ms/1000).toFixed(1)+'s';return Math.floor(ms/60000)+'m '+Math.round((ms%60000)/1000)+'s'}
   function fU(ms){var s=Math.floor(ms/1000),m=Math.floor(s/60),h=Math.floor(m/60);return h>0?h+'h '+m%60+'m':m+'m '+s%60+'s'}
+  function fAgo(ts){if(!ts)return'never';var d=Date.now()-ts;if(d<0)d=0;if(d<1000)return'just now';if(d<60000)return Math.floor(d/1000)+'s ago';if(d<3600000)return Math.floor(d/60000)+'m ago';return Math.floor(d/3600000)+'h ago'}
+
+  /** Copy text to clipboard with visual feedback */
+  function cpToClip(text,btn){
+    navigator.clipboard.writeText(text).then(function(){
+      var orig=btn.textContent;btn.textContent='\\u2713';setTimeout(function(){btn.textContent=orig},800);
+    }).catch(function(){});
+  }
 
   // ─── Subsystem label helpers ──────────────────────
   var subIcons={'diagnostic':'\\u2139','plugins':'\\u2699','agent/embedded':'\\u25B6','gateway':'\\u2302','gateway/ws':'\\u21C4','heartbeat':'\\u2764','canvas':'\\u25A1'};
@@ -222,15 +270,17 @@ export function getDashboardHtml(): string {
     var c=document.createElement('div');c.className='flow active';
     var hdr=document.createElement('div');hdr.className='flow-hdr';
     var short=sid.length>20?sid.slice(0,8)+'..'+sid.slice(-4):sid;
-    hdr.innerHTML='<span class="flow-arr">\\u25BC</span><span class="flow-lbl">Session '+esc(short)+'</span><span class="flow-badge active" data-r="st">active</span><span class="flow-info" data-r="info">'+fT(ev.ts||ev.tsMs)+'</span>';
+    hdr.innerHTML='<span class="flow-arr">\\u25BC</span><span class="flow-lbl" title="'+esc(sid)+'">Session '+esc(short)+'</span><span class="flow-badge active" data-r="st">active</span><span class="flow-info" data-r="info">'+fT(ev.ts||ev.tsMs)+'</span>';
+    var summary=document.createElement('div');summary.className='flow-summary';summary.setAttribute('data-r','summary');
     var body=document.createElement('div');body.className='flow-body';
     hdr.addEventListener('click',function(){
       var shut=!body.classList.contains('shut');
       body.classList.toggle('shut',shut);
+      summary.style.display=shut?'none':'flex';
       hdr.querySelector('.flow-arr').classList.toggle('shut',shut);
     });
-    c.appendChild(hdr);c.appendChild(body);
-    var f={el:c,body:body,hdr:hdr,st:'active',n:0,startTs:Date.now(),sid:sid,err:false,dur:0,tok:0,tools:0,llms:0};
+    c.appendChild(hdr);c.appendChild(summary);c.appendChild(body);
+    var f={el:c,body:body,hdr:hdr,summary:summary,st:'active',n:0,startTs:Date.now(),sid:sid,err:false,errCount:0,dur:0,tok:0,cost:0,tools:0,llms:0,toolNames:{},agentId:''};
     flows[sid]=f;flowOrd.push(sid);
     emptyMsg.style.display='none';
     evList.insertBefore(c,evList.firstChild);
@@ -246,16 +296,82 @@ export function getDashboardHtml(): string {
       var ps=[f.n+' events'];
       if(f.dur>0)ps.push(fD(f.dur));
       if(f.tok>0)ps.push(f.tok+' tok');
+      if(f.cost>0)ps.push('$'+f.cost.toFixed(4));
       if(f.tools>0)ps.push(f.tools+' tools');
       if(f.llms>0)ps.push(f.llms+' llm');
       iEl.textContent=ps.join(' \\u00B7 ');
     }
+    // Update summary bar
+    var sh='';
+    sh+='<span>Events: <span class="fs-v">'+f.n+'</span></span>';
+    if(f.dur>0)sh+='<span>Duration: <span class="fs-v">'+fD(f.dur)+'</span></span>';
+    if(f.tok>0)sh+='<span>Tokens: <span class="fs-v">'+f.tok+'</span></span>';
+    if(f.cost>0)sh+='<span>Cost: <span class="fs-v">$'+f.cost.toFixed(4)+'</span></span>';
+    var tn=Object.keys(f.toolNames);
+    if(tn.length)sh+='<span>Tools: <span class="fs-tools">'+tn.map(esc).join(', ')+'</span></span>';
+    if(f.errCount>0)sh+='<span>Errors: <span class="fs-err">'+f.errCount+'</span></span>';
+    if(f.agentId)sh+='<span>Agent: <span class="fs-agent">'+esc(f.agentId)+'</span></span>';
+    f.summary.innerHTML=sh;
   }
+
+  // ─── Build expandable event detail panel ──────────────────────
+  function buildEvDetail(ev){
+    var d=document.createElement('div');d.className='ev-detail';
+    var m=ev.meta||{};
+    var h='<h4>Identity</h4>';
+    h+=dvRow('Type',ev.type||'?');
+    h+=dvRow('Timestamp',fISO(ev.ts));
+    if(ev.sessionKey)h+=dvRowCopy('Session Key',ev.sessionKey);
+    if(ev.agentId)h+=dvRowCopy('Agent ID',ev.agentId);
+    if(ev.channel)h+=dvRow('Channel',ev.channel);
+    if(ev.outcome)h+=dvRow('Outcome',ev.outcome);
+    if(ev.severity)h+=dvRow('Severity',ev.severity);
+
+    var hasMetrics=ev.durationMs!=null||ev.tokenCount!=null||ev.costUsd!=null||ev.queueDepth!=null||ev.ageMs!=null;
+    if(hasMetrics){
+      h+='<h4>Metrics</h4>';
+      if(ev.durationMs!=null)h+=dvRow('Duration',fD(ev.durationMs)+' ('+ev.durationMs+'ms)');
+      if(ev.tokenCount!=null)h+=dvRow('Tokens',String(ev.tokenCount));
+      if(ev.costUsd!=null)h+=dvRow('Cost','$'+ev.costUsd.toFixed(6));
+      if(ev.queueDepth!=null)h+=dvRow('Queue Depth',String(ev.queueDepth));
+      if(ev.ageMs!=null)h+=dvRow('Age',fD(ev.ageMs)+' ('+ev.ageMs+'ms)');
+    }
+
+    if(ev.error){
+      h+='<h4>Error</h4>';
+      h+='<div class="err-block">'+esc(ev.error)+'</div>';
+    }
+
+    var mKeys=Object.keys(m);
+    if(mKeys.length){
+      h+='<h4>Meta ('+mKeys.length+' fields)</h4>';
+      h+='<div class="meta-grid">';
+      for(var i=0;i<mKeys.length;i++){
+        var k=mKeys[i],v=m[k];
+        var vs=typeof v==='object'?JSON.stringify(v):String(v!=null?v:'');
+        h+='<span class="mk">'+esc(k)+'</span><span class="mv">'+esc(vs)+'</span>';
+      }
+      h+='</div>';
+    }
+
+    d.innerHTML=h;
+    // Wire up copy buttons after inserting
+    setTimeout(function(){
+      d.querySelectorAll('.cp-btn').forEach(function(btn){
+        btn.addEventListener('click',function(e){e.stopPropagation();cpToClip(btn.getAttribute('data-cp'),btn)});
+      });
+    },0);
+    return d;
+  }
+
+  function dvRow(label,val){return'<div class="dv"><span class="dk">'+esc(label)+'</span><span class="dd">'+esc(String(val))+'</span></div>'}
+  function dvRowCopy(label,val){return'<div class="dv"><span class="dk">'+esc(label)+'</span><span class="dd">'+esc(String(val))+'<button class="cp-btn" data-cp="'+esc(String(val))+'">copy</button></span></div>'}
 
   // ─── Build an OpenAlerts event row ──────────────────────
   function buildEvRow(ev,depth){
+    var wrap=document.createElement('div');
     var div=document.createElement('div');
-    div.className='row'+(depth===0?' standalone':depth>1?' deep':'');
+    div.className='row expandable'+(depth===0?' standalone':depth>1?' deep':'');
     var c=cat(ev.type),oc=ev.outcome||'',m=ev.meta||{};
     var ft=ev.type||'?';
     if(ft==='custom'&&m.openclawEventType==='session.state')ft='session.'+(m.sessionState||'state');
@@ -263,12 +379,15 @@ export function getDashboardHtml(): string {
 
     var h='<div class="r-main">';
     h+='<span class="r-time">'+fT(ev.ts)+'</span>';
+    if(ev.severity)h+='<span class="sev-dot '+(ev.severity||'')+'" title="'+esc(ev.severity)+'"></span>';
     h+='<span class="r-type '+c+'">'+esc(ft)+'</span>';
     if(oc)h+='<span class="r-oc '+oc+'">'+(oc==='success'?'\\u2713':oc==='error'?'\\u2717':'\\u25CB')+' '+oc+'</span>';
     h+='<span class="r-pills">';
     if(m.toolName)h+='<span class="p t">'+esc(String(m.toolName))+'</span>';
     if(ev.durationMs!=null)h+='<span class="p d">'+fD(ev.durationMs)+'</span>';
     if(ev.tokenCount!=null)h+='<span class="p tk">'+ev.tokenCount+' tok</span>';
+    if(ev.costUsd!=null)h+='<span class="p cost">$'+ev.costUsd.toFixed(4)+'</span>';
+    if(ev.agentId)h+='<span class="p agent">'+esc(ev.agentId.length>12?ev.agentId.slice(0,8)+'..':ev.agentId)+'</span>';
     if(ev.queueDepth!=null)h+='<span class="p q">q='+ev.queueDepth+'</span>';
     if(m.model)h+='<span class="p m">'+esc(String(m.model))+'</span>';
     if(ev.channel)h+='<span class="p ch">'+esc(ev.channel)+'</span>';
@@ -277,7 +396,7 @@ export function getDashboardHtml(): string {
     h+='</span></div>';
 
     var ds=[];
-    if(ev.error)ds.push('<span class="err">'+esc(ev.error)+'</span>');
+    if(ev.error)ds.push('<span class="err">'+esc(ev.error.length>120?ev.error.slice(0,120)+'...':ev.error)+'</span>');
     if(ev.ageMs!=null)ds.push('stuck '+fD(ev.ageMs));
     if(m.sessionState)ds.push('<span class="sc">'+(m.previousState||'?')+' \\u2192 '+m.sessionState+'</span>');
     if(m.provider)ds.push('<span class="dim">provider: '+esc(String(m.provider))+'</span>');
@@ -285,10 +404,21 @@ export function getDashboardHtml(): string {
     if(ev.sessionKey&&depth===0)ds.push('<span class="dim">session: '+esc(ev.sessionKey.slice(0,12))+'</span>');
     if(ds.length)h+='<div class="r-det">'+ds.join(' \\u00B7 ')+'</div>';
 
-    div.innerHTML=h;return div;
+    div.innerHTML=h;
+    wrap.appendChild(div);
+
+    // Click to expand/collapse detail panel
+    var detail=buildEvDetail(ev);
+    wrap.appendChild(detail);
+    div.addEventListener('click',function(e){
+      if(e.target.classList.contains('cp-btn'))return;
+      detail.classList.toggle('open');
+    });
+
+    return wrap;
   }
 
-  // ─── Build an OpenClaw log row ──────────────────────
+  // ─── Build an OpenClaw log row (Activity tab) ──────────────────────
   function buildLogRow(entry,depth){
     var div=document.createElement('div');
     div.className='row log'+(depth===0?' standalone':depth>1?' deep':'');
@@ -299,16 +429,19 @@ export function getDashboardHtml(): string {
     h+='<span class="r-msg">'+esc(entry.message)+'</span>';
     h+='</div>';
 
-    // Show parsed key=value pairs if any
+    // Show ALL parsed key=value pairs
     var kvs=entry.extra||{};
-    var kvParts=[];
-    if(kvs.sessionId)kvParts.push('<span>session='+esc(kvs.sessionId.slice(0,12))+'..</span>');
-    if(kvs.runId)kvParts.push('<span>run='+esc(kvs.runId.slice(0,12))+'..</span>');
-    if(kvs.durationMs)kvParts.push('<span>duration='+fD(parseInt(kvs.durationMs))+'</span>');
-    if(kvs.totalActive)kvParts.push('<span>active='+esc(kvs.totalActive)+'</span>');
-    if(kvs.queueDepth)kvParts.push('<span>queue='+esc(kvs.queueDepth)+'</span>');
-    if(kvs.prev)kvParts.push('<span>'+esc(kvs.prev)+' \\u2192 '+esc(kvs.new||'?')+'</span>');
-    if(kvParts.length)h+='<div class="r-kvs">'+kvParts.join('')+'</div>';
+    var kvKeys=Object.keys(kvs);
+    if(kvKeys.length){
+      var kvParts=[];
+      for(var i=0;i<kvKeys.length;i++){
+        var k=kvKeys[i],v=kvs[k];
+        if(k==='sessionId'||k==='runId')kvParts.push('<span>'+esc(k)+'='+esc(v.length>16?v.slice(0,12)+'..':v)+'</span>');
+        else if(k==='durationMs')kvParts.push('<span>duration='+fD(parseInt(v))+'</span>');
+        else kvParts.push('<span>'+esc(k)+'='+esc(v)+'</span>');
+      }
+      if(kvParts.length)h+='<div class="r-kvs">'+kvParts.join('')+'</div>';
+    }
 
     div.innerHTML=h;return div;
   }
@@ -321,15 +454,17 @@ export function getDashboardHtml(): string {
     if(sid&&(flows[sid]||ev.type==='agent.start'||ev.type==='session.start'||ev.type==='custom')){
       var f=getFlow(sid,ev);f.n++;
       if(ev.tokenCount)f.tok+=ev.tokenCount;
-      if(ev.type==='tool.call'||ev.type==='tool.error')f.tools++;
+      if(ev.costUsd)f.cost+=ev.costUsd;
+      if(ev.agentId&&!f.agentId)f.agentId=ev.agentId;
+      if(ev.type==='tool.call'||ev.type==='tool.error'){f.tools++;if(ev.meta&&ev.meta.toolName)f.toolNames[String(ev.meta.toolName)]=true}
       if(ev.type==='llm.call')f.llms++;
-      if(ev.outcome==='error')f.err=true;
+      if(ev.outcome==='error'){f.err=true;f.errCount++}
       var depth=1;
       if(ev.type==='tool.call'||ev.type==='tool.error'||ev.type==='llm.call'||ev.type==='llm.token_usage')depth=2;
       f.body.appendChild(buildEvRow(ev,depth));
       if(evList.firstChild!==f.el)evList.insertBefore(f.el,evList.firstChild);
       if(ev.type==='agent.end'||ev.type==='session.end'){if(ev.durationMs)f.dur=ev.durationMs;updFlow(f,f.err?'error':'done')}
-      else if(ev.type==='agent.error'){f.err=true;if(ev.durationMs)f.dur=ev.durationMs;updFlow(f,'error')}
+      else if(ev.type==='agent.error'){f.err=true;f.errCount++;if(ev.durationMs)f.dur=ev.durationMs;updFlow(f,'error')}
       else updFlow(f,f.st);
       f.el.scrollIntoView({block:'nearest',behavior:'smooth'});
       return;
@@ -344,6 +479,10 @@ export function getDashboardHtml(): string {
   function addLogEntry(entry){
     total++;evCnt.textContent=total;emptyMsg.style.display='none';
     if(paused)return;
+    // Also stream to logs tab if active and auto-refresh is on
+    if($('tab-logs').classList.contains('active')&&$('lA').checked){
+      appendLogToTab(entry);
+    }
     var sid=entry.sessionId;
     if(sid&&flows[sid]){
       var f=flows[sid];f.n++;
@@ -353,7 +492,6 @@ export function getDashboardHtml(): string {
       f.el.scrollIntoView({block:'nearest',behavior:'smooth'});
       return;
     }
-    // If log has a sessionId but no flow exists yet, create one
     if(sid){
       var f=getFlow(sid,entry);f.n++;
       f.body.appendChild(buildLogRow(entry,1));
@@ -361,7 +499,6 @@ export function getDashboardHtml(): string {
       f.el.scrollIntoView({block:'nearest',behavior:'smooth'});
       return;
     }
-    // Standalone log entry
     var row=buildLogRow(entry,0);
     if(evList.firstChild&&evList.firstChild!==emptyMsg)evList.insertBefore(row,evList.firstChild);
     else evList.appendChild(row);
@@ -435,16 +572,67 @@ export function getDashboardHtml(): string {
         prevAl=nids;
       }
       if(s.rules){
-        var sec=$('rulesEl'),h='<h3>Rules</h3>';
-        for(var j=0;j<s.rules.length;j++){var r=s.rules[j];var f=r.status==='fired';h+='<div class="rl"><span class="rl-d '+(f?'fired':'ok')+'"></span><span>'+esc(r.id)+'</span><span class="rl-s">'+(f?'FIRING':'OK')+'</span></div>'}
-        sec.innerHTML=h;
+        var sec=$('rulesEl'),rh='<h3>Rules</h3>';
+        for(var j=0;j<s.rules.length;j++){var r=s.rules[j];var rf=r.status==='fired';rh+='<div class="rl"><span class="rl-d '+(rf?'fired':'ok')+'"></span><span>'+esc(r.id)+'</span><span class="rl-s">'+(rf?'FIRING':'OK')+'</span></div>'}
+        sec.innerHTML=rh;
       }
       window._ss=s;
     }).catch(function(){});
   }
 
   // ─── Logs tab ──────────────────────
-  var lastLogLineCount=0;
+  var logSubsPopulated=false;
+
+  /** Build an expandable log row for the Logs tab */
+  function buildLogTabRow(e){
+    var container=document.createElement('div');
+    var row=document.createElement('div');row.className='log-e';
+    row.innerHTML='<span class="log-ts">'+fT(e.tsMs||e.ts)+'</span><span class="log-lv '+esc(e.level)+'">'+esc(e.level)+'</span><span class="log-su">'+esc(e.subsystem)+'</span><span class="log-mg">'+esc(e.message)+'</span>';
+    container.appendChild(row);
+
+    // Build expandable detail
+    var detail=document.createElement('div');detail.className='log-detail';
+    var dh='<div class="ld-grid">';
+    dh+='<span class="lk">Time</span><span class="lv">'+fISO(e.tsMs||e.ts)+'</span>';
+    dh+='<span class="lk">Level</span><span class="lv">'+esc(e.level)+'</span>';
+    dh+='<span class="lk">Subsystem</span><span class="lv">'+esc(e.subsystem)+'</span>';
+    // ALL key-value pairs from extra
+    var kvs=e.extra||{};
+    var kvKeys=Object.keys(kvs);
+    for(var i=0;i<kvKeys.length;i++){
+      dh+='<span class="lk">'+esc(kvKeys[i])+'</span><span class="lv">'+esc(kvs[kvKeys[i]])+'</span>';
+    }
+    dh+='</div>';
+    // File path + method
+    if(e.filePath||e.method){
+      dh+='<div class="ld-file">';
+      if(e.filePath)dh+='\\u{1F4C4} '+esc(e.filePath);
+      if(e.method)dh+=' ('+esc(e.method)+')';
+      if(e.hostname)dh+=' @ '+esc(e.hostname);
+      dh+='</div>';
+    }
+    detail.innerHTML=dh;
+    container.appendChild(detail);
+
+    row.addEventListener('click',function(){detail.classList.toggle('open')});
+    return container;
+  }
+
+  /** Append a single SSE-streamed log entry to the Logs tab */
+  function appendLogToTab(entry){
+    var list=$('logList');
+    var fSub=$('lF').value, fLev=$('lL').value, fSrch=$('lS').value.toLowerCase();
+    var lp={'DEBUG':0,'INFO':1,'WARN':2,'ERROR':3};
+    if(fSub&&entry.subsystem.indexOf(fSub)<0)return;
+    if(fLev&&(lp[entry.level]||0)<(lp[fLev]||0))return;
+    if(fSrch&&entry.message.toLowerCase().indexOf(fSrch)<0&&entry.subsystem.toLowerCase().indexOf(fSrch)<0)return;
+    // Remove empty msg if present
+    var em=list.querySelector('.empty-msg');if(em)em.remove();
+    var row=buildLogTabRow(entry);
+    list.appendChild(row);
+    list.scrollTop=list.scrollHeight;
+  }
+
   function refreshLogs(){
     fetch('/openalerts/logs?limit=300').then(function(r){return r.json()}).then(function(data){
       var list=$('logList');
@@ -453,9 +641,23 @@ export function getDashboardHtml(): string {
       var lp={'DEBUG':0,'INFO':1,'WARN':2,'ERROR':3};
       var minLev=lp[fLev]||0;
 
-      // Only re-render if new entries
-      if(entries.length===lastLogLineCount&&!fSub&&!fLev&&!fSrch)return;
-      lastLogLineCount=entries.length;
+      // Populate subsystem dropdown dynamically (once, or when new subsystems appear)
+      if(data.subsystems&&data.subsystems.length){
+        var sel=$('lF');
+        var cur=sel.value;
+        var existing={};
+        for(var oi=0;oi<sel.options.length;oi++)existing[sel.options[oi].value]=true;
+        var changed=false;
+        for(var si=0;si<data.subsystems.length;si++){
+          if(!existing[data.subsystems[si]]){
+            var opt=document.createElement('option');opt.value=data.subsystems[si];opt.textContent=data.subsystems[si];
+            sel.appendChild(opt);changed=true;
+          }
+        }
+        if(changed)sel.value=cur;
+        logSubsPopulated=true;
+      }
+
       list.innerHTML='';
       if(!entries.length){list.innerHTML='<div class="empty-msg">No logs found.</div>';return}
 
@@ -464,9 +666,7 @@ export function getDashboardHtml(): string {
         if(fSub&&e.subsystem.indexOf(fSub)<0)continue;
         if(fLev&&(lp[e.level]||0)<minLev)continue;
         if(fSrch&&e.message.toLowerCase().indexOf(fSrch)<0&&e.subsystem.toLowerCase().indexOf(fSrch)<0)continue;
-        var row=document.createElement('div');row.className='log-e';
-        row.innerHTML='<span class="log-ts">'+fT(e.tsMs||e.ts)+'</span><span class="log-lv '+esc(e.level)+'">'+esc(e.level)+'</span><span class="log-su">'+esc(e.subsystem)+'</span><span class="log-mg">'+esc(e.message)+'</span>';
-        list.appendChild(row);
+        list.appendChild(buildLogTabRow(e));
       }
       list.scrollTop=list.scrollHeight;
     }).catch(function(){$('logList').innerHTML='<div class="empty-msg">Failed to load.</div>'});
@@ -475,31 +675,57 @@ export function getDashboardHtml(): string {
   $('lF').addEventListener('change',refreshLogs);
   $('lL').addEventListener('change',refreshLogs);
   var sDb;$('lS').addEventListener('input',function(){clearTimeout(sDb);sDb=setTimeout(refreshLogs,300)});
-  setInterval(function(){if($('tab-logs').classList.contains('active')&&$('lA').checked)refreshLogs()},3000);
+  // Fallback polling every 3s (SSE handles real-time now)
+  setInterval(function(){if($('tab-logs').classList.contains('active')&&$('lA').checked&&!evSrc)refreshLogs()},3000);
 
   // ─── Health tab ──────────────────────
   function refreshHealth(){
     var s=window._ss;if(!s){pollState();setTimeout(refreshHealth,1000);return}
-    var h=$('hC'),st=s.stats||{},up=s.uptimeMs||0;
+    var hEl=$('hC'),st=s.stats||{},up=s.uptimeMs||0;
     var html='';
     html+='<div class="h-sec"><h3>System</h3><div class="h-grid">';
-    html+=hCard('Uptime',fU(up),'ok')+hCard('SSE Listeners',s.busListeners||0,'ok');
+    html+=hCard('Uptime',fU(up),'ok');
+    html+=hCard('Started At',s.startedAt?new Date(s.startedAt).toLocaleString():'--','');
+    html+=hCard('SSE Listeners',s.busListeners||0,'ok');
     var te=(st.messageErrors||0)+(st.webhookErrors||0)+(st.toolErrors||0)+(st.agentErrors||0);
-    html+=hCard('Total Errors',te,te>0?'bad':'ok')+hCard('Platform',s.platformConnected?'Connected':'Off',s.platformConnected?'ok':'');
+    html+=hCard('Total Errors',te,te>0?'bad':'ok');
+    html+=hCard('Platform',s.platformConnected?'Connected':'Off',s.platformConnected?'ok':'');
+    // New cards
+    var stuckN=s.stuckSessions!=null?s.stuckSessions:(st.stuckSessions||0);
+    html+=hCard('Stuck Sessions',stuckN,stuckN>0?'bad':'ok');
+    var hbAgo=s.lastHeartbeatTs?fAgo(s.lastHeartbeatTs):'never';
+    var hbOk=s.lastHeartbeatTs&&(Date.now()-s.lastHeartbeatTs)<90000;
+    html+=hCard('Last Heartbeat',hbAgo,hbOk?'ok':'bad');
+    if(s.hourlyAlerts){
+      html+=hCard('Hourly Alert Cap',s.hourlyAlerts.count+'/5'+(s.hourlyAlerts.resetAt?' (reset '+fAgo(s.hourlyAlerts.resetAt)+')':''),'');
+    }
+    if(s.lastResetTs){
+      html+=hCard('Stats Reset',new Date(s.lastResetTs).toLocaleString(),'');
+    }
     html+='</div></div>';
+
     html+='<div class="h-sec"><h3>Stats</h3><table class="h-tbl">';
     html+=hTr('Messages Processed',st.messagesProcessed||0)+hTr('Message Errors',st.messageErrors||0)+hTr('Webhook Errors',st.webhookErrors||0);
     html+=hTr('Tool Calls',st.toolCalls||0)+hTr('Tool Errors',st.toolErrors||0)+hTr('Agent Starts',st.agentStarts||0)+hTr('Agent Errors',st.agentErrors||0)+hTr('Sessions',st.sessionsStarted||0);
+    html+=hTr('Stuck Sessions',stuckN);
     html+='</table></div>';
-    html+='<div class="h-sec"><h3>Rules</h3><table class="h-tbl">';
-    if(s.rules)for(var i=0;i<s.rules.length;i++){var r=s.rules[i];html+='<tr><td>'+esc(r.id)+'</td><td>'+(r.status==='fired'?'<span style="color:#f85149;font-weight:700">FIRING</span>':'<span style="color:#3fb950">OK</span>')+'</td></tr>'}
+
+    html+='<div class="h-sec"><h3>Rules</h3><table class="h-tbl"><tr><th>Rule</th><th>Status</th><th>Last Fired</th></tr>';
+    var cds=s.cooldowns||{};
+    if(s.rules)for(var i=0;i<s.rules.length;i++){
+      var r=s.rules[i];
+      var cdTs=cds[r.id];
+      var lastFired=cdTs?fAgo(cdTs):'--';
+      html+='<tr><td>'+esc(r.id)+'</td><td>'+(r.status==='fired'?'<span style="color:#f85149;font-weight:700">FIRING</span>':'<span style="color:#3fb950">OK</span>')+'</td><td>'+lastFired+'</td></tr>';
+    }
     html+='</table></div>';
+
     if(s.recentAlerts&&s.recentAlerts.length){
       html+='<div class="h-sec"><h3>Recent Alerts ('+s.recentAlerts.length+')</h3><table class="h-tbl">';
       for(var j=0;j<s.recentAlerts.length;j++){var a=s.recentAlerts[j];html+='<tr><td style="color:'+(a.severity==='critical'?'#ff7b72':a.severity==='warn'?'#d29922':'#f85149')+'">['+((a.severity||'?').toUpperCase())+'] '+esc(a.ruleId||'')+'</td><td>'+esc(a.title||'')+' \\u2014 '+esc(a.detail||'')+' ('+fT(a.ts)+')</td></tr>'}
       html+='</table></div>';
     }
-    h.innerHTML=html;
+    hEl.innerHTML=html;
   }
   function hCard(l,v,c){return'<div class="h-card"><div class="lb">'+esc(l)+'</div><div class="vl '+(c||'')+'">'+esc(String(v))+'</div></div>'}
   function hTr(l,v){return'<tr><td>'+esc(l)+'</td><td><b>'+esc(String(v))+'</b></td></tr>'}

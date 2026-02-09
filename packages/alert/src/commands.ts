@@ -20,7 +20,7 @@ export function bindEngine(engine: SteadwingEngine, api: OpenClawPluginApi): voi
   _api = api;
 }
 
-/** Create /health and /alerts command definitions. */
+/** Create /health, /alerts, and /dashboard command definitions. */
 export function createMonitorCommands(api: OpenClawPluginApi): PluginCommandDef[] {
   return [
     {
@@ -34,6 +34,12 @@ export function createMonitorCommands(api: OpenClawPluginApi): PluginCommandDef[
       description: "Show recent alerts from Steadwing Monitor",
       acceptsArgs: false,
       handler: () => handleAlerts(),
+    },
+    {
+      name: "dashboard",
+      description: "Get link to the real-time Steadwing monitoring dashboard",
+      acceptsArgs: false,
+      handler: () => handleDashboard(),
     },
   ];
 }
@@ -68,6 +74,15 @@ function handleAlerts(): { text: string } {
 
   const events = _engine.getRecentEvents(100);
   return { text: formatAlertsOutput(events) };
+}
+
+function handleDashboard(): { text: string } {
+  if (!_engine) {
+    return { text: "Steadwing Alert not initialized yet. Wait for gateway startup." };
+  }
+  return {
+    text: "Steadwing Dashboard: http://127.0.0.1:18789/steadwing\n\nOpen in your browser to see real-time events, alerts, and rule status.",
+  };
 }
 
 function getChannelActivity(): Array<{ channel: string; lastInbound: number | null }> {

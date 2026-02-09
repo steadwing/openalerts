@@ -16,6 +16,7 @@ import {
   translateGatewayStopHook,
 } from "./src/adapter.js";
 import { bindEngine, createMonitorCommands } from "./src/commands.js";
+import { createDashboardHandler, closeDashboardConnections } from "./src/dashboard-routes.js";
 
 const PLUGIN_ID = "alert";
 const LOG_PREFIX = "steadwing-alert";
@@ -161,6 +162,7 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
     },
 
     stop() {
+      closeDashboardConnections();
       if (unsubDiagnostic) {
         unsubDiagnostic();
         unsubDiagnostic = null;
@@ -184,6 +186,9 @@ const plugin = {
     for (const cmd of createMonitorCommands(api)) {
       api.registerCommand(cmd);
     }
+
+    // Register dashboard HTTP routes under /steadwing*
+    api.registerHttpHandler(createDashboardHandler(() => engine));
   },
 };
 

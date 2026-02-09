@@ -1,4 +1,4 @@
-# Steadwing Development Guide
+# OpenAlerts Development Guide
 
 How the codebase works, how to extend it, and what's planned next.
 
@@ -12,10 +12,10 @@ How the codebase works, how to extend it, and what's planned next.
 Framework Event (e.g., OpenClaw's "webhook.error")
   |
   v
-Adapter translates to SteadwingEvent { type: "infra.error", ts, channel, ... }
+Adapter translates to OpenAlertsEvent { type: "infra.error", ts, channel, ... }
   |
   v
-SteadwingEngine.ingest(event)
+OpenAlertsEngine.ingest(event)
   |
   v
 EventBus.emit(event) → all listeners notified
@@ -38,9 +38,9 @@ fireAlert():
 
 ### What OpenClaw Already Provides
 
-OpenClaw emits diagnostic events through its plugin SDK. These events are what Steadwing listens to:
+OpenClaw emits diagnostic events through its plugin SDK. These events are what OpenAlerts listens to:
 
-| OpenClaw Event | What It Means | Steadwing Translation |
+| OpenClaw Event | What It Means | OpenAlerts Translation |
 |----------------|---------------|----------------------|
 | `webhook.error` | Inbound webhook (Telegram, etc.) failed to process | `infra.error` |
 | `message.processed` | LLM finished processing a message (success or error) | `llm.call` |
@@ -51,14 +51,14 @@ OpenClaw emits diagnostic events through its plugin SDK. These events are what S
 | `session.start/end` | Session lifecycle | `session.start/end` |
 
 OpenClaw also provides:
-- **Channel system** (Telegram, Discord, Slack, etc.) — Steadwing routes alerts through this
-- **Plugin config** with JSON schema validation — Steadwing uses this for user-facing settings
-- **State directory** — Steadwing stores its JSONL event log here
+- **Channel system** (Telegram, Discord, Slack, etc.) — OpenAlerts routes alerts through this
+- **Plugin config** with JSON schema validation — OpenAlerts uses this for user-facing settings
+- **State directory** — OpenAlerts stores its JSONL event log here
 - **Plugin commands** (/health, /alerts) — zero LLM tokens, handled directly by plugin
 
-### What Steadwing Adds On Top
+### What OpenAlerts Adds On Top
 
-Things OpenClaw does NOT have natively that Steadwing provides:
+Things OpenClaw does NOT have natively that OpenAlerts provides:
 
 - **Rule-based alerting** — pattern detection across events (error spikes, stuck sessions, gateway down)
 - **Sliding window aggregation** — tracks error counts over time windows (5min, 20 messages, etc.)
@@ -67,20 +67,20 @@ Things OpenClaw does NOT have natively that Steadwing provides:
 - **Watchdog timer** — detects gateway-down by monitoring heartbeat silence (30s tick)
 - **JSONL persistence** — survives restarts, warm-starts evaluator state from history
 - **Log pruning** — auto-prune by age (7d) and size (512KB) every 6 hours
-- **Platform sync** — batch events to steadwing.dev with retry logic
+- **Platform sync** — batch events to openalerts.dev with retry logic
 - **Formatted /health and /alerts commands** — quick status check from chat
 
 ---
 
 ## How to Add a New Adapter (for another framework)
 
-Adding support for a new AI agent framework (Nanobot, LangChain, Mastra, Vercel AI SDK, CrewAI, etc.) follows a consistent pattern.
+Adding support for a new AI agent framework (Nanobot, LangChain, Mastra, Vercel AI SDK, CrewAI, etc.) follows a consistent pattern. All adapters live in this same repo.
 
 ### Step 1: Create the package
 
 ```
 packages/
-  adapter-nanobot/
+  nanobot/
     package.json
     tsconfig.json
     src/
@@ -91,13 +91,13 @@ packages/
 **package.json:**
 ```json
 {
-  "name": "@steadwing/adapter-nanobot",
+  "name": "@steadwing/openalerts-nanobot",
   "version": "0.1.0",
   "type": "module",
   "main": "src/index.ts",
   "exports": { ".": "./src/index.ts" },
   "dependencies": {
-    "@steadwing/core": "0.1.0"
+    "@steadwing/openalerts-core": "0.1.0"
   },
   "peerDependencies": {
     "nanobot": "*"
@@ -116,13 +116,13 @@ packages/
 
 ### Step 2: Write the event translator
 
-The translator maps framework-specific events to `SteadwingEvent`:
+The translator maps framework-specific events to `OpenAlertsEvent`:
 
 ```typescript
-// adapter-nanobot/src/adapter.ts
-import type { SteadwingEvent, SteadwingEventType } from "@steadwing/core";
+// nanobot/src/adapter.ts
+import type { OpenAlertsEvent, OpenAlertsEventType } from "@steadwing/openalerts-core";
 
-const EVENT_MAP: Record<string, SteadwingEventType> = {
+const EVENT_MAP: Record<string, OpenAlertsEventType> = {
   "nanobot.llm.complete": "llm.call",
   "nanobot.llm.error": "llm.error",
   "nanobot.tool.run": "tool.call",
@@ -130,7 +130,7 @@ const EVENT_MAP: Record<string, SteadwingEventType> = {
   // ... map all relevant framework events
 };
 
-export function translateNanobotEvent(event: NanobotEvent): SteadwingEvent | null {
+export function translateNanobotEvent(event: NanobotEvent): OpenAlertsEvent | null {
   const type = EVENT_MAP[event.kind];
   if (!type) return null;
 
@@ -152,12 +152,12 @@ Two options depending on the framework:
 
 **Option A: Plugin/hook system (like OpenClaw)**
 ```typescript
-// adapter-nanobot/src/index.ts
-import { SteadwingEngine } from "@steadwing/core";
+// nanobot/src/index.ts
+import { OpenAlertsEngine } from "@steadwing/openalerts-core";
 import { translateNanobotEvent } from "./adapter.js";
 
-export function createNanobotMonitor(nanobotApp: NanobotApp, opts: SteadwingInitOptions) {
-  const engine = new SteadwingEngine(opts);
+export function createNanobotMonitor(nanobotApp: NanobotApp, opts: OpenAlertsInitOptions) {
+  const engine = new OpenAlertsEngine(opts);
   engine.start();
 
   nanobotApp.on("event", (event) => {
@@ -171,7 +171,7 @@ export function createNanobotMonitor(nanobotApp: NanobotApp, opts: SteadwingInit
 
 **Option B: Middleware/wrapper (for frameworks without event hooks)**
 ```typescript
-export function withSteadwing(handler: LLMHandler, engine: SteadwingEngine): LLMHandler {
+export function withOpenAlerts(handler: LLMHandler, engine: OpenAlertsEngine): LLMHandler {
   return async (input) => {
     const start = Date.now();
     try {
@@ -197,14 +197,14 @@ Update `tsconfig.json` root include if using the global typecheck:
   "packages/node/src/**/*.ts",
   "packages/alert/index.ts",
   "packages/alert/src/**/*.ts",
-  "packages/adapter-nanobot/src/**/*.ts"
+  "packages/nanobot/src/**/*.ts"
 ]
 ```
 
 ### What You Don't Need to Touch
 
-- **No changes to `@steadwing/core`** — it's framework-agnostic
-- **No changes to `@steadwing/node`** — adapters can use it if they want built-in channels
+- **No changes to `@steadwing/openalerts-core`** — it's framework-agnostic
+- **No changes to `@steadwing/openalerts-node`** — adapters can use it if they want built-in channels
 - **No changes to other adapters** — each adapter is independent
 
 ---
@@ -219,7 +219,7 @@ const myNewRule: AlertRuleDefinition = {
   defaultCooldownMs: 15 * 60 * 1000,
   defaultThreshold: 5,
 
-  evaluate(event: SteadwingEvent, ctx: RuleContext): AlertEvent | null {
+  evaluate(event: OpenAlertsEvent, ctx: RuleContext): AlertEvent | null {
     if (event.type !== "llm.call") return null;
     if (!isRuleEnabled(ctx, "my-rule")) return null;
 
@@ -262,7 +262,7 @@ Channels live in `packages/node/src/channels/`.
 
 ```typescript
 // packages/node/src/channels/pagerduty.ts
-import type { AlertChannel, AlertEvent } from "@steadwing/core";
+import type { AlertChannel, AlertEvent } from "@steadwing/openalerts-core";
 
 export class PagerDutyAlertChannel implements AlertChannel {
   readonly name = "pagerduty";
@@ -279,7 +279,7 @@ export class PagerDutyAlertChannel implements AlertChannel {
         payload: {
           summary: formatted,
           severity: alert.severity === "critical" ? "critical" : "warning",
-          source: "steadwing",
+          source: "openalerts",
         },
       }),
       signal: AbortSignal.timeout(10_000),
@@ -301,10 +301,10 @@ Then re-export from `packages/node/src/index.ts`.
 - [ ] Configurable alert message templates
 
 ### Medium Term
-- [ ] `@steadwing/adapter-langchain` — LangChain/LangGraph callback handler
-- [ ] `@steadwing/adapter-vercel-ai` — Vercel AI SDK telemetry hook
-- [ ] `@steadwing/adapter-mastra` — Mastra framework integration
-- [ ] Web dashboard at steadwing.dev (event timeline, rule configuration UI)
+- [ ] `@steadwing/openalerts-langchain` — LangChain/LangGraph callback handler
+- [ ] `@steadwing/openalerts-vercel-ai` — Vercel AI SDK telemetry hook
+- [ ] `@steadwing/openalerts-mastra` — Mastra framework integration
+- [ ] Hosted dashboard at openalerts.dev (event timeline, rule configuration UI)
 - [ ] Email alert channel
 - [ ] PagerDuty / Opsgenie integration
 
@@ -320,10 +320,10 @@ Then re-export from `packages/node/src/index.ts`.
 ## Key Design Decisions
 
 **Why not just use Sentry/Datadog?**
-They don't understand AI agent failure modes. A "stuck session" or "high error rate over 20 LLM calls" isn't something generic APM tools detect. Steadwing's rules are purpose-built for agent monitoring.
+They don't understand AI agent failure modes. A "stuck session" or "high error rate over 20 LLM calls" isn't something generic APM tools detect. OpenAlerts rules are purpose-built for agent monitoring.
 
 **Why a separate event type system?**
-Every framework uses different event names (`webhook.error` in OpenClaw, `llm.error` in LangChain, etc.). The universal `SteadwingEvent` type is the normalization layer that lets one set of rules work across all frameworks.
+Every framework uses different event names (`webhook.error` in OpenClaw, `llm.error` in LangChain, etc.). The universal `OpenAlertsEvent` type is the normalization layer that lets one set of rules work across all frameworks.
 
 **Why JSONL and not SQLite?**
 JSONL is zero-dependency, append-only, human-readable, and works on every platform including edge runtimes. For the volume of events we handle (hundreds per day, not millions), it's the right choice. The pruning logic keeps it bounded.

@@ -66,15 +66,22 @@ export function formatHealthOutput(opts: {
   // 24h stats
   lines.push("");
   const s = state.stats;
+  const rcvd = s.messagesReceived > 0 ? `, ${s.messagesReceived} received` : "";
   lines.push(
-    `24h: ${s.messagesProcessed} msgs, ${s.messageErrors} errors, ${s.stuckSessions} stuck`,
+    `24h: ${s.messagesProcessed} msgs processed${rcvd}, ${s.messageErrors} errors, ${s.stuckSessions} stuck`,
   );
   if (s.toolCalls > 0 || s.agentStarts > 0 || s.sessionsStarted > 0) {
     const parts: string[] = [];
     if (s.toolCalls > 0) parts.push(`${s.toolCalls} tools${s.toolErrors > 0 ? ` (${s.toolErrors} err)` : ""}`);
     if (s.agentStarts > 0) parts.push(`${s.agentStarts} agents${s.agentErrors > 0 ? ` (${s.agentErrors} err)` : ""}`);
     if (s.sessionsStarted > 0) parts.push(`${s.sessionsStarted} sessions`);
+    if (s.compactions > 0) parts.push(`${s.compactions} compactions`);
     lines.push(`     ${parts.join(", ")}`);
+  }
+  if (s.totalTokens > 0) {
+    const tokenStr = s.totalTokens >= 1000 ? `${(s.totalTokens / 1000).toFixed(1)}k` : `${s.totalTokens}`;
+    const costStr = s.totalCostUsd > 0 ? ` ($${s.totalCostUsd.toFixed(4)})` : "";
+    lines.push(`     ${tokenStr} tokens${costStr}`);
   }
 
   // Platform

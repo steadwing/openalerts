@@ -1,5 +1,5 @@
-import type { OpenAlertsEngine } from "@steadwing/openalerts-core";
-import { formatAlertsOutput, formatHealthOutput, type AlertEvent } from "@steadwing/openalerts-core";
+import type { OpenAlertsEngine, AlertEvent } from "@steadwing/openalerts-core";
+import { formatAlertsOutput, formatHealthOutput } from "@steadwing/openalerts-core";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 
 type PluginCommandDef = {
@@ -40,6 +40,12 @@ export function createMonitorCommands(api: OpenClawPluginApi): PluginCommandDef[
       description: "Get link to the real-time OpenAlerts monitoring dashboard",
       acceptsArgs: false,
       handler: () => handleDashboard(),
+    },
+    {
+      name: "test-alert",
+      description: "Send a test alert to verify alert delivery",
+      acceptsArgs: false,
+      handler: () => handleTestAlert(),
     },
   ];
 }
@@ -82,6 +88,38 @@ function handleDashboard(): { text: string } {
   }
   return {
     text: "OpenAlerts Dashboard: http://127.0.0.1:18789/openalerts\n\nOpen in your browser to see real-time events, alerts, and rule status.",
+  };
+}
+
+function handleTestAlert(): { text: string } {
+  if (!_engine) {
+    return { text: "OpenAlerts not initialized yet. Wait for gateway startup." };
+  }
+
+  // Ingest a synthetic infra.error to trigger the infra-errors rule evaluation.
+  // This won't fire an actual alert unless the threshold (3 errors) is reached,
+  // so we fire a one-off test alert directly through the engine.
+  const testEvent: AlertEvent = {
+    type: "alert",
+    id: `test:manual:${Date.now()}`,
+    ruleId: "test",
+    severity: "info",
+    title: "Test alert — delivery verified",
+    detail: "This is a test alert from /test-alert. If you see this, alert delivery is working.",
+    ts: Date.now(),
+    fingerprint: `test:manual`,
+  };
+
+  // Ingest as a custom event so it appears in the dashboard
+  _engine.ingest({
+    type: "custom",
+    ts: Date.now(),
+    outcome: "success",
+    meta: { openclawLog: "test_alert", source: "command:test-alert" },
+  });
+
+  return {
+    text: "Test alert sent. Check your alert channel (Telegram/Discord/etc) for delivery confirmation.\n\nIf you don't receive it, check /health for channel status.",
   };
 }
 

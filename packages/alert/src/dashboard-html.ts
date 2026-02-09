@@ -5,7 +5,7 @@
  * grouped by sessionId for a complete picture of what's happening.
  */
 export function getDashboardHtml(): string {
-  return `<!DOCTYPE html>
+	return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -118,18 +118,30 @@ export function getDashboardHtml(): string {
 
   /* ── Logs tab ──────────────────── */
   .logs-t{flex:1;display:flex;flex-direction:column;overflow:hidden}
-  .log-bar{background:#161b22;padding:5px 12px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:10px;flex-shrink:0;font-size:11px}
-  .log-bar select,.log-bar input{background:#0d1117;border:1px solid #30363d;color:#c9d1d9;font-family:inherit;font-size:10px;padding:2px 6px;border-radius:3px}
-  .log-bar button{background:#21262d;border:1px solid #30363d;color:#c9d1d9;font-family:inherit;font-size:10px;padding:2px 8px;border-radius:3px;cursor:pointer}
-  .log-bar label{color:#8b949e}
+  .log-bar{background:#161b22;padding:8px 12px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0;font-size:11px}
+  .log-bar select,.log-bar input{background:#0d1117;border:1px solid #30363d;color:#c9d1d9;font-family:inherit;font-size:10px;padding:3px 6px;border-radius:3px}
+  .log-bar input[type="text"]{min-width:180px}
+  .log-bar button{background:#21262d;border:1px solid #30363d;color:#c9d1d9;font-family:inherit;font-size:10px;padding:3px 10px;border-radius:3px;cursor:pointer;transition:all 0.12s}
+  .log-bar button:hover{background:#30363d;border-color:#484f58}
+  .log-bar button:active{background:#0d1117}
+  .log-bar label{color:#8b949e;display:flex;align-items:center;gap:4px;cursor:pointer}
+  .log-bar label:hover{color:#c9d1d9}
+  .log-bar input[type="checkbox"]{cursor:pointer}
+  .log-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .log-filters label{font-size:10px}
+  .log-truncate{background:#3d2e1a;border:1px solid #d29922;color:#d29922;padding:4px 10px;font-size:10px;border-radius:3px;margin:8px 12px;display:none}
+  .log-truncate.show{display:block}
   .log-list{flex:1;overflow-y:auto;font-size:11px}
-  .log-e{padding:2px 12px;border-bottom:1px solid #161b22;display:flex;gap:6px;align-items:baseline}
+  .log-e{padding:2px 12px;border-bottom:1px solid #161b22;display:flex;gap:6px;align-items:baseline;position:relative}
   .log-e:hover{background:#161b22}
+  .log-e:hover .log-copy{opacity:1}
   .log-ts{color:#484f58;font-size:10px;min-width:70px;flex-shrink:0}
   .log-lv{font-size:9px;font-weight:700;min-width:42px;flex-shrink:0}
-  .log-lv.DEBUG{color:#8b949e} .log-lv.INFO{color:#58a6ff} .log-lv.WARN{color:#d29922} .log-lv.ERROR{color:#f85149}
+  .log-lv.TRACE{color:#6e7681} .log-lv.DEBUG{color:#8b949e} .log-lv.INFO{color:#58a6ff} .log-lv.WARN{color:#d29922} .log-lv.ERROR{color:#f85149} .log-lv.FATAL{color:#ff7b72;background:#3d1a1a;padding:1px 3px;border-radius:2px}
   .log-su{color:#bc8cff;font-size:10px;min-width:110px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .log-mg{color:#c9d1d9;word-break:break-all}
+  .log-mg{color:#c9d1d9;word-break:break-all;flex:1}
+  .log-copy{position:absolute;right:8px;top:4px;font-size:9px;color:#484f58;cursor:pointer;border:1px solid #30363d;background:#161b22;padding:1px 4px;border-radius:2px;font-family:inherit;opacity:0;transition:opacity 0.12s}
+  .log-copy:hover{color:#c9d1d9;border-color:#484f58}
 
   /* ── Health tab ──────────────────── */
   .health-t{flex:1;overflow-y:auto;padding:14px}
@@ -199,6 +211,7 @@ export function getDashboardHtml(): string {
     <div class="tab active" data-tab="activity">Activity</div>
     <div class="tab" data-tab="logs">System Logs</div>
     <div class="tab" data-tab="health">Health</div>
+    <div class="tab" data-tab="debug">Debug</div>
   </div>
   <div class="content">
     <!-- Activity -->
@@ -219,20 +232,54 @@ export function getDashboardHtml(): string {
     <div class="tab-content" id="tab-logs">
       <div class="logs-t">
         <div class="log-bar">
-          <label>Sub:</label>
+          <label>Subsystem:</label>
           <select id="lF"><option value="">All</option></select>
-          <label>Level:</label>
-          <select id="lL"><option value="">All</option><option value="INFO">INFO+</option><option value="WARN">WARN+</option><option value="ERROR">ERROR</option></select>
-          <input type="text" id="lS" placeholder="Search..." style="width:120px">
-          <button id="lR">Refresh</button>
-          <label style="margin-left:auto"><input type="checkbox" id="lA" checked> Auto</label>
+          <input type="text" id="lS" placeholder="Search logs..." title="Ctrl+F to focus">
+          <div class="log-filters">
+            <label title="Show TRACE logs"><input type="checkbox" id="lv-TRACE" checked> TRACE</label>
+            <label title="Show DEBUG logs"><input type="checkbox" id="lv-DEBUG" checked> DEBUG</label>
+            <label title="Show INFO logs"><input type="checkbox" id="lv-INFO" checked> INFO</label>
+            <label title="Show WARN logs"><input type="checkbox" id="lv-WARN" checked> WARN</label>
+            <label title="Show ERROR logs"><input type="checkbox" id="lv-ERROR" checked> ERROR</label>
+            <label title="Show FATAL logs"><input type="checkbox" id="lv-FATAL" checked> FATAL</label>
+          </div>
+          <button id="lR" title="Refresh logs (Ctrl+R)">↻ Refresh</button>
+          <button id="lE" title="Export filtered logs">⬇ Export</button>
+          <label style="margin-left:auto" title="Auto-scroll to new logs"><input type="checkbox" id="lA" checked> Auto-follow</label>
         </div>
+        <div class="log-truncate" id="lT">⚠ Logs truncated - showing most recent entries only</div>
         <div class="log-list" id="logList"><div class="empty-msg">Loading...</div></div>
       </div>
     </div>
     <!-- Health -->
     <div class="tab-content" id="tab-health">
       <div class="health-t" id="hC"><div class="empty-msg">Loading...</div></div>
+    </div>
+    <!-- Debug -->
+    <div class="tab-content" id="tab-debug">
+      <div class="health-t">
+        <div class="h-sec">
+          <h3>OpenAlerts State Snapshot</h3>
+          <button id="dbRefresh" style="margin-left:10px;padding:4px 12px;font-size:11px">↻ Refresh</button>
+          <div class="h-grid" id="dbState" style="margin-top:12px"></div>
+        </div>
+        <div class="h-sec">
+          <h3>Recent Events (Last 20)</h3>
+          <div id="dbEvents" style="font-size:11px;max-height:400px;overflow-y:auto"></div>
+        </div>
+        <div class="h-sec">
+          <h3>Alert Rules Status</h3>
+          <div id="dbRules"></div>
+        </div>
+        <div class="h-sec">
+          <h3>Circuit Breakers</h3>
+          <div id="dbCircuit" style="font-size:11px"></div>
+        </div>
+        <div class="h-sec">
+          <h3>Task Timeouts</h3>
+          <div id="dbTasks" style="font-size:11px"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -542,6 +589,7 @@ export function getDashboardHtml(): string {
       var tgt=$('tab-'+t.dataset.tab);if(tgt)tgt.classList.add('active');
       if(t.dataset.tab==='logs')refreshLogs();
       if(t.dataset.tab==='health')refreshHealth();
+      if(t.dataset.tab==='debug')refreshDebug();
     });
   });
 
@@ -587,7 +635,8 @@ export function getDashboardHtml(): string {
   function buildLogTabRow(e){
     var container=document.createElement('div');
     var row=document.createElement('div');row.className='log-e';
-    row.innerHTML='<span class="log-ts">'+fT(e.tsMs||e.ts)+'</span><span class="log-lv '+esc(e.level)+'">'+esc(e.level)+'</span><span class="log-su">'+esc(e.subsystem)+'</span><span class="log-mg">'+esc(e.message)+'</span>';
+    var rawLine=fISO(e.tsMs||e.ts)+' ['+e.level+'] '+e.subsystem+': '+e.message;
+    row.innerHTML='<span class="log-ts">'+fT(e.tsMs||e.ts)+'</span><span class="log-lv '+esc(e.level)+'">'+esc(e.level)+'</span><span class="log-su">'+esc(e.subsystem)+'</span><span class="log-mg">'+esc(e.message)+'</span><button class="log-copy" data-raw="'+esc(rawLine)+'" title="Copy log line">copy</button>';
     container.appendChild(row);
 
     // Build expandable detail
@@ -618,30 +667,35 @@ export function getDashboardHtml(): string {
     return container;
   }
 
+  /** Check if log level is enabled */
+  function isLevelEnabled(level){
+    var cb=$('lv-'+level);
+    return cb?cb.checked:true;
+  }
+
   /** Append a single SSE-streamed log entry to the Logs tab */
   function appendLogToTab(entry){
     var list=$('logList');
-    var fSub=$('lF').value, fLev=$('lL').value, fSrch=$('lS').value.toLowerCase();
-    var lp={'DEBUG':0,'INFO':1,'WARN':2,'ERROR':3};
+    var fSub=$('lF').value, fSrch=$('lS').value.toLowerCase();
     if(fSub&&entry.subsystem.indexOf(fSub)<0)return;
-    if(fLev&&(lp[entry.level]||0)<(lp[fLev]||0))return;
+    if(!isLevelEnabled(entry.level))return;
     if(fSrch&&entry.message.toLowerCase().indexOf(fSrch)<0&&entry.subsystem.toLowerCase().indexOf(fSrch)<0)return;
     // Remove empty msg if present
     var em=list.querySelector('.empty-msg');if(em)em.remove();
     var row=buildLogTabRow(entry);
     list.appendChild(row);
-    list.scrollTop=list.scrollHeight;
+    if($('lA').checked)list.scrollTop=list.scrollHeight;
   }
 
   function refreshLogs(){
-    fetch('/openalerts/logs?limit=300').then(function(r){return r.json()}).then(function(data){
+    fetch('/openalerts/logs?limit=500').then(function(r){return r.json()}).then(function(data){
       var list=$('logList');
       var entries=data.entries||[];
-      var fSub=$('lF').value, fLev=$('lL').value, fSrch=$('lS').value.toLowerCase();
-      var lp={'DEBUG':0,'INFO':1,'WARN':2,'ERROR':3};
-      var minLev=lp[fLev]||0;
+      var fSub=$('lF').value, fSrch=$('lS').value.toLowerCase();
+      var truncated=data.truncated||false;
+      $('lT').classList.toggle('show',truncated);
 
-      // Populate subsystem dropdown dynamically (once, or when new subsystems appear)
+      // Populate subsystem dropdown dynamically
       if(data.subsystems&&data.subsystems.length){
         var sel=$('lF');
         var cur=sel.value;
@@ -664,17 +718,63 @@ export function getDashboardHtml(): string {
       for(var i=0;i<entries.length;i++){
         var e=entries[i];
         if(fSub&&e.subsystem.indexOf(fSub)<0)continue;
-        if(fLev&&(lp[e.level]||0)<minLev)continue;
+        if(!isLevelEnabled(e.level))continue;
         if(fSrch&&e.message.toLowerCase().indexOf(fSrch)<0&&e.subsystem.toLowerCase().indexOf(fSrch)<0)continue;
         list.appendChild(buildLogTabRow(e));
       }
-      list.scrollTop=list.scrollHeight;
+      if($('lA').checked)list.scrollTop=list.scrollHeight;
     }).catch(function(){$('logList').innerHTML='<div class="empty-msg">Failed to load.</div>'});
   }
+
+  // Export filtered logs
+  function exportLogs(){
+    var list=$('logList');
+    var rows=list.querySelectorAll('.log-e');
+    if(!rows.length){alert('No logs to export');return}
+    var lines=[];
+    rows.forEach(function(row){
+      var btn=row.querySelector('.log-copy');
+      if(btn)lines.push(btn.getAttribute('data-raw'));
+    });
+    var blob=new Blob([lines.join('\n')],{type:'text/plain'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;a.download='openalerts-logs-'+Date.now()+'.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Wire up event listeners
   $('lR').addEventListener('click',refreshLogs);
+  $('lE').addEventListener('click',exportLogs);
   $('lF').addEventListener('change',refreshLogs);
-  $('lL').addEventListener('change',refreshLogs);
   var sDb;$('lS').addEventListener('input',function(){clearTimeout(sDb);sDb=setTimeout(refreshLogs,300)});
+
+  // Level filter checkboxes
+  ['TRACE','DEBUG','INFO','WARN','ERROR','FATAL'].forEach(function(lv){
+    var cb=$('lv-'+lv);
+    if(cb)cb.addEventListener('change',refreshLogs);
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown',function(e){
+    if(e.ctrlKey&&e.key==='f'&&$('tab-logs').classList.contains('active')){
+      e.preventDefault();$('lS').focus();
+    }
+    if(e.ctrlKey&&e.key==='r'&&$('tab-logs').classList.contains('active')){
+      e.preventDefault();refreshLogs();
+    }
+  });
+
+  // Copy button handler (event delegation)
+  document.addEventListener('click',function(e){
+    if(e.target.classList.contains('log-copy')){
+      e.stopPropagation();
+      var raw=e.target.getAttribute('data-raw');
+      if(raw)cpToClip(raw,e.target);
+    }
+  });
+
   // Fallback polling every 3s (SSE handles real-time now)
   setInterval(function(){if($('tab-logs').classList.contains('active')&&$('lA').checked&&!evSrc)refreshLogs()},3000);
 
@@ -725,10 +825,95 @@ export function getDashboardHtml(): string {
       for(var j=0;j<s.recentAlerts.length;j++){var a=s.recentAlerts[j];html+='<tr><td style="color:'+(a.severity==='critical'?'#ff7b72':a.severity==='warn'?'#d29922':'#f85149')+'">['+((a.severity||'?').toUpperCase())+'] '+esc(a.ruleId||'')+'</td><td>'+esc(a.title||'')+' \\u2014 '+esc(a.detail||'')+' ('+fT(a.ts)+')</td></tr>'}
       html+='</table></div>';
     }
+
+    // Circuit Breakers (when backend exposes this)
+    if(s.circuitBreakers&&s.circuitBreakers.length){
+      html+='<div class="h-sec"><h3>Circuit Breakers</h3><table class="h-tbl"><tr><th>Category</th><th>Name</th><th>State</th><th>Failures</th><th>Last Change</th></tr>';
+      for(var k=0;k<s.circuitBreakers.length;k++){
+        var cb=s.circuitBreakers[k];
+        var stColor=cb.state==='CLOSED'?'#3fb950':cb.state==='OPEN'?'#f85149':'#d29922';
+        html+='<tr><td>'+esc(cb.category)+'</td><td>'+esc(cb.name)+'</td><td style="color:'+stColor+';font-weight:700">'+cb.state+'</td><td>'+cb.failures+'</td><td>'+fAgo(cb.lastStateChange)+'</td></tr>';
+      }
+      html+='</table></div>';
+    }
+
+    // Task Timeouts (when backend exposes this)
+    if(s.taskTimeouts&&s.taskTimeouts.length){
+      html+='<div class="h-sec"><h3>Running Tasks</h3><table class="h-tbl"><tr><th>Type</th><th>ID</th><th>Duration</th><th>Timeout</th><th>Status</th></tr>';
+      for(var l=0;l<s.taskTimeouts.length;l++){
+        var tt=s.taskTimeouts[l];
+        var dur=Date.now()-tt.startedAt;
+        var pct=Math.floor((dur/tt.timeoutMs)*100);
+        var warn=pct>80;
+        html+='<tr><td>'+esc(tt.type)+'</td><td>'+esc(tt.id.slice(0,12))+'</td><td>'+fD(dur)+'</td><td>'+fD(tt.timeoutMs)+'</td><td style="color:'+(warn?'#d29922':'#3fb950')+'">'+pct+'%</td></tr>';
+      }
+      html+='</table></div>';
+    }
+
     hEl.innerHTML=html;
   }
   function hCard(l,v,c){return'<div class="h-card"><div class="lb">'+esc(l)+'</div><div class="vl '+(c||'')+'">'+esc(String(v))+'</div></div>'}
   function hTr(l,v){return'<tr><td>'+esc(l)+'</td><td><b>'+esc(String(v))+'</b></td></tr>'}
+
+  // ─── Debug tab ──────────────────────
+  function refreshDebug(){
+    var s=window._ss;if(!s){pollState();setTimeout(refreshDebug,1000);return}
+
+    // State snapshot
+    var stHtml='';
+    stHtml+=hCard('Uptime',fU(s.uptimeMs||0),'ok');
+    stHtml+=hCard('Started At',s.startedAt?new Date(s.startedAt).toLocaleString():'--','');
+    stHtml+=hCard('SSE Listeners',s.busListeners||0,'ok');
+    stHtml+=hCard('Platform',s.platformConnected?'Connected':'Off',s.platformConnected?'ok':'');
+    stHtml+=hCard('Event Count',total,'ok');
+    $('dbState').innerHTML=stHtml;
+
+    // Recent events (last 20 from flows)
+    var evHtml='<div style="font-family:monospace;font-size:10px;line-height:1.6">';
+    var recentEvs=[];
+    for(var k in flows){
+      var f=flows[k];
+      if(f.body&&f.body.children){
+        for(var i=0;i<f.body.children.length;i++){
+          var child=f.body.children[i];
+          if(child.querySelector&&child.querySelector('.r-time')){
+            var timeEl=child.querySelector('.r-time');
+            var typeEl=child.querySelector('.r-type');
+            if(timeEl&&typeEl){
+              recentEvs.push({time:timeEl.textContent,type:typeEl.textContent,sid:k});
+            }
+          }
+        }
+      }
+    }
+    recentEvs=recentEvs.slice(-20);
+    if(recentEvs.length===0)evHtml+='<div style="color:#8b949e">No recent events</div>';
+    else for(var j=0;j<recentEvs.length;j++){
+      var ev=recentEvs[j];
+      evHtml+='<div><span style="color:#484f58">'+esc(ev.time)+'</span> <span style="color:#58a6ff">'+esc(ev.type)+'</span> <span style="color:#8b949e">'+esc(ev.sid.slice(0,12))+'</span></div>';
+    }
+    evHtml+='</div>';
+    $('dbEvents').innerHTML=evHtml;
+
+    // Rules status
+    var rulesHtml='<table class="h-tbl"><tr><th>Rule</th><th>Status</th><th>Last Fired</th></tr>';
+    var cds=s.cooldowns||{};
+    if(s.rules)for(var i=0;i<s.rules.length;i++){
+      var r=s.rules[i];
+      var cdTs=cds[r.id];
+      var lastFired=cdTs?fAgo(cdTs):'never';
+      rulesHtml+='<tr><td>'+esc(r.id)+'</td><td>'+(r.status==='fired'?'<span style="color:#f85149;font-weight:700">FIRING</span>':'<span style="color:#3fb950">OK</span>')+'</td><td>'+lastFired+'</td></tr>';
+    }
+    rulesHtml+='</table>';
+    $('dbRules').innerHTML=rulesHtml;
+
+    // Circuit breakers (placeholder - will be populated when backend exposes this)
+    $('dbCircuit').innerHTML='<div style="color:#8b949e;padding:8px">Circuit breaker state not yet exposed by backend</div>';
+
+    // Task timeouts (placeholder - will be populated when backend exposes this)
+    $('dbTasks').innerHTML='<div style="color:#8b949e;padding:8px">Task timeout state not yet exposed by backend</div>';
+  }
+  $('dbRefresh').addEventListener('click',refreshDebug);
 
   // ─── Boot ──────────────────────
   connectSSE();pollState();setInterval(pollState,4000);

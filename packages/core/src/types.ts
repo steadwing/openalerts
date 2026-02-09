@@ -143,6 +143,7 @@ export type EvaluatorState = {
   stats: {
     messagesProcessed: number;
     messageErrors: number;
+    messagesReceived: number;
     webhookErrors: number;
     stuckSessions: number;
     toolCalls: number;
@@ -150,6 +151,9 @@ export type EvaluatorState = {
     agentStarts: number;
     agentErrors: number;
     sessionsStarted: number;
+    compactions: number;
+    totalTokens: number;
+    totalCostUsd: number;
     lastResetTs: number;
   };
 };

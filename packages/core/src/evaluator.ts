@@ -21,6 +21,7 @@ export function createEvaluatorState(): EvaluatorState {
     stats: {
       messagesProcessed: 0,
       messageErrors: 0,
+      messagesReceived: 0,
       webhookErrors: 0,
       stuckSessions: 0,
       toolCalls: 0,
@@ -28,6 +29,9 @@ export function createEvaluatorState(): EvaluatorState {
       agentStarts: 0,
       agentErrors: 0,
       sessionsStarted: 0,
+      compactions: 0,
+      totalTokens: 0,
+      totalCostUsd: 0,
       lastResetTs: now,
     },
   };
@@ -66,6 +70,7 @@ export function processEvent(
   if (now - state.stats.lastResetTs > 24 * 60 * 60 * 1000) {
     state.stats.messagesProcessed = 0;
     state.stats.messageErrors = 0;
+    state.stats.messagesReceived = 0;
     state.stats.webhookErrors = 0;
     state.stats.stuckSessions = 0;
     state.stats.toolCalls = 0;
@@ -73,6 +78,9 @@ export function processEvent(
     state.stats.agentStarts = 0;
     state.stats.agentErrors = 0;
     state.stats.sessionsStarted = 0;
+    state.stats.compactions = 0;
+    state.stats.totalTokens = 0;
+    state.stats.totalCostUsd = 0;
     state.stats.lastResetTs = now;
   }
 
@@ -92,6 +100,16 @@ export function processEvent(
   }
   if (event.type === "session.start") {
     state.stats.sessionsStarted++;
+  }
+  if (event.type === "llm.token_usage") {
+    if (typeof event.tokenCount === "number") state.stats.totalTokens += event.tokenCount;
+    if (typeof event.costUsd === "number") state.stats.totalCostUsd += event.costUsd;
+  }
+  if (event.type === "custom" && event.meta?.openclawHook === "message_received") {
+    state.stats.messagesReceived++;
+  }
+  if (event.type === "custom" && event.meta?.compaction === true) {
+    state.stats.compactions++;
   }
 
   // Reset hourly cap if expired

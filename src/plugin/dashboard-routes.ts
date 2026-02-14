@@ -6,6 +6,7 @@ import type {
 	OpenAlertsEvent,
 	AlertEvent,
 } from "../core/index.js";
+import { DEFAULTS } from "../core/index.js";
 import { getDashboardHtml } from "./dashboard-html.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -61,6 +62,18 @@ function getRuleStatuses(
 	const cooldownWindow = 15 * 60 * 1000;
 
 	return RULE_IDS.map((id) => {
+		// For gateway-down, reflect current condition: if heartbeats have resumed,
+		// show OK even if the rule fired recently.
+		if (id === "gateway-down") {
+			const silenceMs = state.lastHeartbeatTs > 0
+				? now - state.lastHeartbeatTs
+				: 0;
+			const isCurrentlyDown =
+				state.lastHeartbeatTs > 0 &&
+				silenceMs >= DEFAULTS.gatewayDownThresholdMs;
+			return { id, status: isCurrentlyDown ? ("fired" as const) : ("ok" as const) };
+		}
+
 		// Cooldown keys are fingerprints like "llm-errors:unknown", not bare rule IDs.
 		// Check if ANY cooldown key starting with this rule ID has fired recently.
 		let fired = false;
@@ -179,8 +192,8 @@ function readOpenClawLogs(
 			subsystemSet.add(parsed.subsystem);
 		}
 
-		const truncated = entries.length > maxEntries;
-		const sliced = entries.slice(-maxEntries);
+		const truncated = maxEntries > 0 && entries.length > maxEntries;
+		const sliced = maxEntries > 0 ? entries.slice(-maxEntries) : entries;
 		const subsystems = Array.from(subsystemSet).sort();
 
 		return { entries: sliced, truncated, subsystems };
@@ -378,10 +391,9 @@ export function createDashboardHandler(
 		// ── GET /openalerts/logs → OpenClaw log entries (for Logs tab) ────
 		if (url.startsWith("/openalerts/logs") && req.method === "GET") {
 			const urlObj = new URL(url, "http://localhost");
-			const limit = Math.min(
-				parseInt(urlObj.searchParams.get("limit") || "200", 10),
-				1000,
-			);
+			const rawLimit = urlObj.searchParams.get("limit") || "200";
+			// limit=0 means "no limit" — return all log entries
+			const limit = rawLimit === "0" ? 0 : Math.min(parseInt(rawLimit, 10), 50000);
 			const afterTs = urlObj.searchParams.get("after") || undefined;
 			const result = readOpenClawLogs(limit, afterTs);
 

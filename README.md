@@ -127,7 +127,23 @@ Set `"quiet": true` at the config level for log-only mode (no messages sent).
 
 ## LLM-Enriched Alerts
 
-By default, OpenAlerts uses your configured LLM to enrich alerts with a human-friendly summary and an actionable suggestion:
+OpenAlerts can optionally use your configured LLM to enrich alerts with a human-friendly summary and an actionable suggestion. **This feature is disabled by default** — opt in by setting `"llmEnriched": true` in your plugin config:
+
+```jsonc
+{
+  "plugins": {
+    "entries": {
+      "openalerts": {
+        "config": {
+          "llmEnriched": true
+        }
+      }
+    }
+  }
+}
+```
+
+When enabled, alerts include an LLM-generated summary and action:
 
 ```
 1 agent error(s) on unknown in the last minute. Last: 401 Incorrect API key...
@@ -140,8 +156,6 @@ Action: Update your API key in ~/.openclaw/.env with a valid key from platform.o
 - **API key**: reads from the corresponding environment variable (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, etc.)
 - **Supported providers**: OpenAI, Anthropic, Groq, Together, DeepSeek (and any OpenAI-compatible API)
 - **Graceful fallback**: if the LLM call fails or times out (10s), the original alert is sent unchanged
-
-To disable, set `"llmEnriched": false` in your plugin config.
 
 ## Commands
 

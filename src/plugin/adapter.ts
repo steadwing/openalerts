@@ -7,7 +7,7 @@ import type {
 	OpenAlertsEvent,
 	OpenAlertsEventType,
 } from "../core/index.js";
-import { createLlmEnricher } from "../core/llm-enrichment.js";
+import { createLlmEnricher, resolveApiKeyEnvVar } from "../core/llm-enrichment.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -691,7 +691,22 @@ export function createOpenClawEnricher(
 			return null;
 		}
 
-		return createLlmEnricher({ modelString: primary, logger });
+		// Resolve API key here (in adapter) to keep env access separate from network calls
+		const envVar = resolveApiKeyEnvVar(primary);
+		if (!envVar) {
+			logger?.warn("openalerts: llm-enrichment skipped — unknown provider");
+			return null;
+		}
+
+		const apiKey = process.env[envVar];
+		if (!apiKey) {
+			logger?.warn(
+				`openalerts: llm-enrichment skipped — ${envVar} not set in environment`,
+			);
+			return null;
+		}
+
+		return createLlmEnricher({ modelString: primary, apiKey, logger });
 	} catch (err) {
 		logger?.warn(`openalerts: llm-enrichment setup failed: ${String(err)}`);
 		return null;

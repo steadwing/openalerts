@@ -43,6 +43,8 @@ const PROVIDER_MAP: Record<string, ProviderConfig> = {
 export type LlmEnricherOptions = {
   /** Model string from config, e.g. "openai/gpt-5-nano" */
   modelString: string;
+  /** Pre-resolved API key (caller reads from env to avoid env+fetch in same file) */
+  apiKey: string;
   /** Logger for debug/warn messages */
   logger?: OpenAlertsLogger;
   /** Timeout in ms (default: 10000) */
@@ -171,11 +173,22 @@ async function callAnthropic(
 // ─── Factory ────────────────────────────────────────────────────────────────
 
 /**
+ * Resolve the environment variable name for a given model string's provider.
+ * Returns null if the model string is invalid or the provider is unknown.
+ */
+export function resolveApiKeyEnvVar(modelString: string): string | null {
+  const slashIdx = modelString.indexOf("/");
+  if (slashIdx < 1) return null;
+  const providerKey = modelString.slice(0, slashIdx).toLowerCase();
+  return PROVIDER_MAP[providerKey]?.apiKeyEnvVar ?? null;
+}
+
+/**
  * Create an AlertEnricher that calls an LLM to add a summary + action to alerts.
- * Returns null if provider or API key can't be resolved.
+ * Returns null if provider can't be resolved.
  */
 export function createLlmEnricher(opts: LlmEnricherOptions): AlertEnricher | null {
-  const { modelString, logger, timeoutMs = 10_000 } = opts;
+  const { modelString, apiKey, logger, timeoutMs = 10_000 } = opts;
 
   // Parse "provider/model-name" format
   const slashIdx = modelString.indexOf("/");
@@ -190,14 +203,6 @@ export function createLlmEnricher(opts: LlmEnricherOptions): AlertEnricher | nul
   const providerConfig = PROVIDER_MAP[providerKey];
   if (!providerConfig) {
     logger?.warn(`openalerts: llm-enrichment skipped — unknown provider "${providerKey}"`);
-    return null;
-  }
-
-  const apiKey = process.env[providerConfig.apiKeyEnvVar];
-  if (!apiKey) {
-    logger?.warn(
-      `openalerts: llm-enrichment skipped — ${providerConfig.apiKeyEnvVar} not set in environment`,
-    );
     return null;
   }
 

@@ -13,22 +13,22 @@ export function getDashboardHtml(): string {
 <title>OpenAlerts Monitor</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'SF Mono','Cascadia Code','Consolas',monospace;background:#0d1117;color:#c9d1d9;font-size:13px;overflow:hidden;height:100vh}
+  body{font-family:'SF Mono','Cascadia Code','Consolas',monospace;background:#0d1117;color:#c9d1d9;font-size:14px;overflow:hidden;height:100vh}
   .grid{display:grid;grid-template-rows:auto auto 1fr;height:100vh}
 
   /* ── Top bar ──────────────────── */
   .topbar{background:#161b22;border-bottom:1px solid #30363d;padding:8px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-  .topbar h1{font-size:14px;font-weight:600;color:#f0f6fc;letter-spacing:0.5px}
+  .topbar h1{font-size:16px;font-weight:600;color:#f0f6fc;letter-spacing:0.5px}
   .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:4px}
   .dot.live{background:#3fb950;animation:pulse 2s infinite}
   .dot.dead{background:#f85149}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
-  .stat{color:#8b949e;font-size:11px}
+  .stat{color:#8b949e;font-size:12px}
   .stat b{color:#c9d1d9;font-weight:500}
 
   /* ── Tabs ──────────────────── */
   .tabbar{background:#161b22;border-bottom:1px solid #30363d;display:flex}
-  .tab{padding:7px 18px;font-size:12px;font-weight:600;color:#8b949e;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s}
+  .tab{padding:7px 18px;font-size:13px;font-weight:600;color:#8b949e;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s}
   .tab:hover{color:#c9d1d9;background:#1c2129}
   .tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
   .tab-content{display:none;overflow:hidden;flex:1}
@@ -39,7 +39,7 @@ export function getDashboardHtml(): string {
   .activity-panels{display:grid;grid-template-columns:1fr 280px;gap:0;overflow:hidden;flex:1}
   @media(max-width:900px){.activity-panels{grid-template-columns:1fr}}
   .panel{display:flex;flex-direction:column;overflow:hidden}
-  .panel-header{background:#161b22;padding:6px 12px;font-size:11px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:0.8px;border-bottom:1px solid #30363d;flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+  .panel-header{background:#161b22;padding:6px 12px;font-size:12px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:0.8px;border-bottom:1px solid #30363d;flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
   .panel:first-child{border-right:1px solid #30363d}
   .scroll{flex:1;overflow-y:auto}
   .scroll::-webkit-scrollbar{width:5px}
@@ -65,16 +65,16 @@ export function getDashboardHtml(): string {
   .flow-body.shut{max-height:0!important;overflow:hidden}
 
   /* ── Event/Log row ──────────────────── */
-  .row{padding:3px 10px 3px 24px;border-top:1px solid #0d1117;font-size:11px;line-height:1.5;animation:fi 0.15s ease}
+  .row{padding:3px 10px 3px 24px;border-top:1px solid #0d1117;font-size:12px;line-height:1.5;animation:fi 0.15s ease}
   .row:hover{background:#0d1117}
   .row.standalone{padding-left:10px;border-bottom:1px solid #21262d;border-top:none}
   .row.deep{padding-left:38px}
 
   /* OpenAlerts event row */
   .row .r-main{display:flex;align-items:center;gap:5px}
-  .r-time{color:#484f58;font-size:10px;min-width:55px;flex-shrink:0}
-  .r-icon{width:14px;text-align:center;flex-shrink:0;font-size:11px}
-  .r-type{font-weight:600;min-width:90px;font-size:10px;flex-shrink:0}
+  .r-time{color:#484f58;font-size:11px;min-width:55px;flex-shrink:0}
+  .r-icon{width:14px;text-align:center;flex-shrink:0;font-size:12px}
+  .r-type{font-weight:600;min-width:110px;font-size:11px;flex-shrink:0}
   .r-type.llm{color:#58a6ff} .r-type.tool{color:#bc8cff} .r-type.agent{color:#3fb950}
   .r-type.session{color:#d29922} .r-type.infra{color:#f85149} .r-type.custom{color:#8b949e}
   .r-type.watchdog{color:#6e7681}
@@ -83,10 +83,10 @@ export function getDashboardHtml(): string {
   .r-oc.error{background:#3d1a1a;color:#f85149}
   .r-oc.timeout{background:#3d2e1a;color:#d29922}
   .r-pills{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto;align-items:center}
-  .p{font-size:9px;background:#21262d;padding:0 5px;border-radius:3px;white-space:nowrap}
+  .p{font-size:10px;background:#21262d;padding:0 5px;border-radius:3px;white-space:nowrap}
   .p.t{color:#bc8cff;background:#2a1f3d} .p.d{color:#d29922} .p.tk{color:#58a6ff}
   .p.q{color:#f0883e} .p.m{color:#8b949e} .p.ch{color:#d2a8ff} .p.s{color:#6e7681;font-size:8px}
-  .r-det{padding:1px 0 1px 70px;color:#6e7681;font-size:10px}
+  .r-det{padding:1px 0 1px 70px;color:#6e7681;font-size:11px}
   .r-det .err{color:#f85149} .r-det .dim{color:#484f58} .r-det .sc{color:#d29922}
 
   /* OpenClaw log row */
@@ -101,25 +101,25 @@ export function getDashboardHtml(): string {
   @keyframes fi{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:none}}
 
   /* ── Alerts panel ──────────────────── */
-  .al{padding:6px 10px;border-bottom:1px solid #21262d;font-size:11px;animation:fi 0.2s}
-  .al-sev{font-weight:700;text-transform:uppercase;font-size:9px;letter-spacing:0.4px}
+  .al{padding:6px 10px;border-bottom:1px solid #21262d;font-size:12px;animation:fi 0.2s}
+  .al-sev{font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:0.4px}
   .al-sev.error{color:#f85149} .al-sev.warn{color:#d29922} .al-sev.critical{color:#ff7b72} .al-sev.info{color:#58a6ff}
-  .al-title{color:#c9d1d9;margin-top:1px;font-size:11px}
-  .al-detail{color:#8b949e;margin-top:1px;font-size:10px}
-  .al-time{color:#484f58;font-size:10px;margin-top:1px}
+  .al-title{color:#c9d1d9;margin-top:1px;font-size:12px}
+  .al-detail{color:#8b949e;margin-top:1px;font-size:11px}
+  .al-time{color:#484f58;font-size:11px;margin-top:1px}
 
   /* ── Rules ──────────────────── */
   .rules{border-top:1px solid #30363d;padding:6px 10px;flex-shrink:0}
-  .rules h3{font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:4px}
-  .rl{display:flex;align-items:center;gap:5px;font-size:11px;padding:1px 0}
+  .rules h3{font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:4px}
+  .rl{display:flex;align-items:center;gap:5px;font-size:12px;padding:1px 0}
   .rl-d{width:5px;height:5px;border-radius:50%;flex-shrink:0}
   .rl-d.ok{background:#3fb950} .rl-d.fired{background:#f85149;animation:pulse 1s infinite}
-  .rl-s{color:#8b949e;margin-left:auto;font-size:10px}
+  .rl-s{color:#8b949e;margin-left:auto;font-size:11px}
 
   /* ── Logs tab ──────────────────── */
   .logs-t{flex:1;display:flex;flex-direction:column;overflow:hidden}
-  .log-bar{background:#161b22;padding:8px 12px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0;font-size:11px}
-  .log-bar select,.log-bar input{background:#0d1117;border:1px solid #30363d;color:#c9d1d9;font-family:inherit;font-size:10px;padding:3px 6px;border-radius:3px}
+  .log-bar{background:#161b22;padding:8px 12px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0;font-size:12px}
+  .log-bar select,.log-bar input{background:#0d1117;border:1px solid #30363d;color:#c9d1d9;font-family:inherit;font-size:11px;padding:3px 6px;border-radius:3px}
   .log-bar input[type="text"]{min-width:180px}
   .log-bar button{background:#21262d;border:1px solid #30363d;color:#c9d1d9;font-family:inherit;font-size:10px;padding:3px 10px;border-radius:3px;cursor:pointer;transition:all 0.12s}
   .log-bar button:hover{background:#30363d;border-color:#484f58}
@@ -131,31 +131,31 @@ export function getDashboardHtml(): string {
   .log-filters label{font-size:10px}
   .log-truncate{background:#3d2e1a;border:1px solid #d29922;color:#d29922;padding:4px 10px;font-size:10px;border-radius:3px;margin:8px 12px;display:none}
   .log-truncate.show{display:block}
-  .log-list{flex:1;overflow-y:auto;font-size:11px}
+  .log-list{flex:1;overflow-y:auto;font-size:12px}
   .log-e{padding:2px 12px;border-bottom:1px solid #161b22;display:flex;gap:6px;align-items:baseline;position:relative}
   .log-e:hover{background:#161b22}
   .log-e:hover .log-copy{opacity:1}
-  .log-ts{color:#484f58;font-size:10px;min-width:70px;flex-shrink:0}
-  .log-lv{font-size:9px;font-weight:700;min-width:42px;flex-shrink:0}
+  .log-ts{color:#484f58;font-size:11px;min-width:70px;flex-shrink:0}
+  .log-lv{font-size:10px;font-weight:700;min-width:42px;flex-shrink:0}
   .log-lv.TRACE{color:#6e7681} .log-lv.DEBUG{color:#8b949e} .log-lv.INFO{color:#58a6ff} .log-lv.WARN{color:#d29922} .log-lv.ERROR{color:#f85149} .log-lv.FATAL{color:#ff7b72;background:#3d1a1a;padding:1px 3px;border-radius:2px}
-  .log-su{color:#bc8cff;font-size:10px;min-width:110px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .log-mg{color:#c9d1d9;word-break:break-all;flex:1}
+  .log-su{color:#bc8cff;font-size:11px;min-width:110px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .log-mg{color:#c9d1d9;font-size:12px;word-break:break-all;flex:1}
   .log-copy{position:absolute;right:8px;top:4px;font-size:9px;color:#484f58;cursor:pointer;border:1px solid #30363d;background:#161b22;padding:1px 4px;border-radius:2px;font-family:inherit;opacity:0;transition:opacity 0.12s}
   .log-copy:hover{color:#c9d1d9;border-color:#484f58}
 
   /* ── Health tab ──────────────────── */
   .health-t{flex:1;overflow-y:auto;padding:14px}
   .h-sec{margin-bottom:16px}
-  .h-sec h3{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #21262d}
+  .h-sec h3{font-size:13px;color:#8b949e;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #21262d}
   .h-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px}
   .h-card{background:#161b22;border:1px solid #21262d;border-radius:5px;padding:8px 12px}
-  .h-card .lb{color:#8b949e;font-size:10px;margin-bottom:2px}
-  .h-card .vl{color:#c9d1d9;font-size:13px;font-weight:600}
+  .h-card .lb{color:#8b949e;font-size:11px;margin-bottom:2px}
+  .h-card .vl{color:#c9d1d9;font-size:15px;font-weight:600}
   .h-card .vl.ok{color:#3fb950} .h-card .vl.bad{color:#f85149}
   .h-tbl{width:100%;border-collapse:collapse}
-  .h-tbl td{padding:3px 8px;font-size:11px;border-bottom:1px solid #161b22}
+  .h-tbl td{padding:4px 8px;font-size:13px;border-bottom:1px solid #161b22}
   .h-tbl td:first-child{color:#8b949e;width:140px}
-  .h-tbl th{padding:3px 8px;font-size:10px;color:#8b949e;text-align:left;border-bottom:1px solid #30363d;font-weight:600}
+  .h-tbl th{padding:4px 8px;font-size:12px;color:#8b949e;text-align:left;border-bottom:1px solid #30363d;font-weight:600}
 
   /* ── Expandable event detail ──────────────────── */
   .row.expandable{cursor:pointer}
@@ -245,9 +245,10 @@ export function getDashboardHtml(): string {
           </div>
           <button id="lR" title="Refresh logs (Ctrl+R)">↻ Refresh</button>
           <button id="lE" title="Export filtered logs">⬇ Export</button>
+          <label title="Fetch all logs (not just recent) when searching or filtering"><input type="checkbox" id="lAll"> All logs</label>
           <label style="margin-left:auto" title="Auto-scroll to new logs"><input type="checkbox" id="lA" checked> Auto-follow</label>
         </div>
-        <div class="log-truncate" id="lT">⚠ Logs truncated - showing most recent entries only</div>
+        <div class="log-truncate" id="lT">⚠ Logs truncated — showing most recent entries only. Check "All logs" to search across the full log file.</div>
         <div class="log-list" id="logList"><div class="empty-msg">Loading...</div></div>
       </div>
     </div>
@@ -271,14 +272,6 @@ export function getDashboardHtml(): string {
           <h3>Alert Rules Status</h3>
           <div id="dbRules"></div>
         </div>
-        <div class="h-sec">
-          <h3>Circuit Breakers</h3>
-          <div id="dbCircuit" style="font-size:11px"></div>
-        </div>
-        <div class="h-sec">
-          <h3>Task Timeouts</h3>
-          <div id="dbTasks" style="font-size:11px"></div>
-        </div>
       </div>
     </div>
   </div>
@@ -293,6 +286,30 @@ export function getDashboardHtml(): string {
   function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
   function cat(t){if(!t)return'custom';var p=t.split('.')[0];return['llm','tool','agent','session','infra','watchdog'].indexOf(p)>=0?p:'custom'}
   function fT(ts){if(!ts)return'';var d=typeof ts==='number'?new Date(ts):new Date(ts);return d.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+
+  // ─── Human-readable event labels ──────────────────────
+  var EVT_LABELS={
+    'llm.call':['\\u{1F916}','LLM Called'],
+    'llm.error':['\\u26A0','LLM Failed'],
+    'llm.token_usage':['\\u{1F4CA}','Token Usage'],
+    'tool.call':['\\u{1F527}','Tool Executed'],
+    'tool.error':['\\u{1F527}','Tool Failed'],
+    'agent.start':['\\u25B6','Agent Started'],
+    'agent.end':['\\u23F9','Agent Finished'],
+    'agent.error':['\\u{1F6A8}','Agent Error'],
+    'agent.stuck':['\\u23F3','Agent Stuck'],
+    'session.start':['\\u{1F4AC}','Session Started'],
+    'session.end':['\\u{1F3C1}','Session Ended'],
+    'session.stuck':['\\u23F3','Session Stuck'],
+    'infra.error':['\\u{1F6A8}','Infra Error'],
+    'infra.heartbeat':['\\u2764','Heartbeat'],
+    'infra.queue_depth':['\\u{1F4E6}','Queue Depth'],
+    'watchdog.tick':['\\u{1F440}','Health Check'],
+    'msg.delivered':['\\u2709','Message Sent'],
+    'msg.in':['\\u{1F4E5}','Message Received'],
+    'msg.out':['\\u{1F4E4}','Message Sending']
+  };
+  function friendlyLabel(ft){return EVT_LABELS[ft]||['\\u2022',ft]}
   function fISO(ts){if(!ts)return'';return new Date(typeof ts==='number'?ts:Date.parse(ts)).toISOString()}
   function fD(ms){if(ms==null)return'';if(ms<1000)return ms+'ms';if(ms<60000)return(ms/1000).toFixed(1)+'s';return Math.floor(ms/60000)+'m '+Math.round((ms%60000)/1000)+'s'}
   function fU(ms){var s=Math.floor(ms/1000),m=Math.floor(s/60),h=Math.floor(m/60);return h>0?h+'h '+m%60+'m':m+'m '+s%60+'s'}
@@ -317,7 +334,7 @@ export function getDashboardHtml(): string {
     var c=document.createElement('div');c.className='flow active';
     var hdr=document.createElement('div');hdr.className='flow-hdr';
     var short=sid.length>20?sid.slice(0,8)+'..'+sid.slice(-4):sid;
-    hdr.innerHTML='<span class="flow-arr">\\u25BC</span><span class="flow-lbl" title="'+esc(sid)+'">Session '+esc(short)+'</span><span class="flow-badge active" data-r="st">active</span><span class="flow-info" data-r="info">'+fT(ev.ts||ev.tsMs)+'</span>';
+    hdr.innerHTML='<span class="flow-arr">\\u25BC</span><span class="flow-lbl" title="'+esc(sid)+'">Session '+esc(short)+'</span><span class="flow-badge active" data-r="st">Running</span><span class="flow-info" data-r="info">'+fT(ev.ts||ev.tsMs)+'</span>';
     var summary=document.createElement('div');summary.className='flow-summary';summary.setAttribute('data-r','summary');
     var body=document.createElement('div');body.className='flow-body';
     hdr.addEventListener('click',function(){
@@ -337,26 +354,27 @@ export function getDashboardHtml(): string {
   function updFlow(f,st){
     f.st=st;f.el.className='flow '+st;
     var sEl=f.hdr.querySelector('[data-r="st"]');
-    if(sEl){sEl.className='flow-badge '+st;sEl.textContent=st}
+    var stLabels={active:'Running',done:'Completed',error:'Failed'};
+    if(sEl){sEl.className='flow-badge '+st;sEl.textContent=stLabels[st]||st}
     var iEl=f.hdr.querySelector('[data-r="info"]');
     if(iEl){
       var ps=[f.n+' events'];
       if(f.dur>0)ps.push(fD(f.dur));
-      if(f.tok>0)ps.push(f.tok+' tok');
+      if(f.tok>0)ps.push(f.tok+' tokens');
       if(f.cost>0)ps.push('$'+f.cost.toFixed(4));
-      if(f.tools>0)ps.push(f.tools+' tools');
-      if(f.llms>0)ps.push(f.llms+' llm');
+      if(f.tools>0)ps.push(f.tools+(f.tools===1?' tool':' tools'));
+      if(f.llms>0)ps.push(f.llms+(f.llms===1?' LLM call':' LLM calls'));
       iEl.textContent=ps.join(' \\u00B7 ');
     }
     // Update summary bar
     var sh='';
     sh+='<span>Events: <span class="fs-v">'+f.n+'</span></span>';
     if(f.dur>0)sh+='<span>Duration: <span class="fs-v">'+fD(f.dur)+'</span></span>';
-    if(f.tok>0)sh+='<span>Tokens: <span class="fs-v">'+f.tok+'</span></span>';
+    if(f.tok>0)sh+='<span>Tokens used: <span class="fs-v">'+f.tok+'</span></span>';
     if(f.cost>0)sh+='<span>Cost: <span class="fs-v">$'+f.cost.toFixed(4)+'</span></span>';
     var tn=Object.keys(f.toolNames);
-    if(tn.length)sh+='<span>Tools: <span class="fs-tools">'+tn.map(esc).join(', ')+'</span></span>';
-    if(f.errCount>0)sh+='<span>Errors: <span class="fs-err">'+f.errCount+'</span></span>';
+    if(tn.length)sh+='<span>Tools used: <span class="fs-tools">'+tn.map(esc).join(', ')+'</span></span>';
+    if(f.errCount>0)sh+='<span>\\u26A0 Errors: <span class="fs-err">'+f.errCount+'</span></span>';
     if(f.agentId)sh+='<span>Agent: <span class="fs-agent">'+esc(f.agentId)+'</span></span>';
     f.summary.innerHTML=sh;
   }
@@ -426,20 +444,23 @@ export function getDashboardHtml(): string {
     if(ft==='custom'&&m.openclawHook==='message_received')ft='msg.in';
     if(ft==='custom'&&m.openclawHook==='message_sending')ft='msg.out';
 
+    var fl=friendlyLabel(ft);
+
     var h='<div class="r-main">';
     h+='<span class="r-time">'+fT(ev.ts)+'</span>';
+    h+='<span class="r-icon">'+fl[0]+'</span>';
     if(ev.severity)h+='<span class="sev-dot '+(ev.severity||'')+'" title="'+esc(ev.severity)+'"></span>';
-    h+='<span class="r-type '+c+'">'+esc(ft)+'</span>';
-    if(oc)h+='<span class="r-oc '+oc+'">'+(oc==='success'?'\\u2713':oc==='error'?'\\u2717':'\\u25CB')+' '+oc+'</span>';
+    h+='<span class="r-type '+c+'">'+esc(fl[1])+'</span>';
+    if(oc)h+='<span class="r-oc '+oc+'">'+(oc==='success'?'\\u2713 OK':oc==='error'?'\\u2717 Failed':oc==='timeout'?'\\u23F1 Timeout':'\\u25CB '+oc)+'</span>';
     h+='<span class="r-pills">';
     if(m.toolName)h+='<span class="p t">'+esc(String(m.toolName))+'</span>';
     if(ev.durationMs!=null)h+='<span class="p d">'+fD(ev.durationMs)+'</span>';
-    if(ev.tokenCount!=null)h+='<span class="p tk">'+ev.tokenCount+' tok</span>';
+    if(ev.tokenCount!=null)h+='<span class="p tk">'+ev.tokenCount+' tokens</span>';
     if(ev.costUsd!=null)h+='<span class="p cost">$'+ev.costUsd.toFixed(4)+'</span>';
     if(ev.agentId)h+='<span class="p agent">'+esc(ev.agentId.length>12?ev.agentId.slice(0,8)+'..':ev.agentId)+'</span>';
-    if(ev.queueDepth!=null)h+='<span class="p q">q='+ev.queueDepth+'</span>';
+    if(ev.queueDepth!=null)h+='<span class="p q">Queue: '+ev.queueDepth+'</span>';
     if(m.model)h+='<span class="p m">'+esc(String(m.model))+'</span>';
-    if(ev.channel)h+='<span class="p ch">'+esc(ev.channel)+'</span>';
+    if(ev.channel)h+='<span class="p ch">via '+esc(ev.channel)+'</span>';
     if(m.messageCount!=null)h+='<span class="p">'+m.messageCount+' msgs</span>';
     if(m.content){var preview=String(m.content);if(preview.length>60)preview=preview.slice(0,57)+'...';h+='<span class="p">'+esc(preview)+'</span>'}
     if(m.source&&String(m.source)!=='simulate')h+='<span class="p s">'+esc(String(m.source))+'</span>';
@@ -447,8 +468,8 @@ export function getDashboardHtml(): string {
 
     var ds=[];
     if(ev.error)ds.push('<span class="err">'+esc(ev.error.length>120?ev.error.slice(0,120)+'...':ev.error)+'</span>');
-    if(ev.ageMs!=null)ds.push('stuck '+fD(ev.ageMs));
-    if(m.sessionState)ds.push('<span class="sc">'+(m.previousState||'?')+' \\u2192 '+m.sessionState+'</span>');
+    if(ev.ageMs!=null)ds.push('idle for '+fD(ev.ageMs));
+    if(m.sessionState)ds.push('<span class="sc">'+esc(String(m.previousState||'?'))+' \\u2192 '+esc(String(m.sessionState))+'</span>');
     if(m.provider)ds.push('<span class="dim">provider: '+esc(String(m.provider))+'</span>');
     if(m.to)ds.push('<span class="dim">to: '+esc(String(m.to))+'</span>');
     if(ev.sessionKey&&depth===0)ds.push('<span class="dim">session: '+esc(ev.sessionKey.slice(0,12))+'</span>');
@@ -575,7 +596,7 @@ export function getDashboardHtml(): string {
   function addAlert(a){
     alEmpty.style.display='none';
     var d=document.createElement('div');d.className='al';
-    d.innerHTML='<div class="al-sev '+(a.severity||'error')+'">['+((a.severity||'ERROR').toUpperCase())+'] '+esc(a.ruleId||'')+'</div><div class="al-title">'+esc(a.title||'')+'</div><div class="al-detail">'+esc(a.detail||'')+'</div><div class="al-time">'+fT(a.ts)+'</div>';
+    var sv=a.severity||'error';d.innerHTML='<div class="al-sev '+esc(sv)+'">['+esc(sv.toUpperCase())+'] '+esc(a.ruleId||'')+'</div><div class="al-title">'+esc(a.title||'')+'</div><div class="al-detail">'+esc(a.detail||'')+'</div><div class="al-time">'+fT(a.ts)+'</div>';
     alList.insertBefore(d,alList.firstChild);
     while(alList.children.length>MAX_ALERTS+1)alList.removeChild(alList.lastChild);
   }
@@ -694,8 +715,19 @@ export function getDashboardHtml(): string {
     if($('lA').checked)list.scrollTop=list.scrollHeight;
   }
 
+  function hasActiveFilter(){
+    var fSub=$('lF').value;
+    var fSrch=$('lS').value;
+    var allLevels=['TRACE','DEBUG','INFO','WARN','ERROR','FATAL'];
+    var anyUnchecked=false;
+    for(var li=0;li<allLevels.length;li++){var cb=$('lv-'+allLevels[li]);if(cb&&!cb.checked){anyUnchecked=true;break}}
+    return !!(fSub||fSrch||anyUnchecked);
+  }
+
   function refreshLogs(){
-    fetch('/openalerts/logs?limit=500').then(function(r){return r.json()}).then(function(data){
+    var fetchAll=$('lAll').checked||hasActiveFilter();
+    var limit=fetchAll?0:500;
+    fetch('/openalerts/logs?limit='+limit).then(function(r){return r.json()}).then(function(data){
       var list=$('logList');
       var entries=data.entries||[];
       var fSub=$('lF').value, fSrch=$('lS').value.toLowerCase();
@@ -720,15 +752,16 @@ export function getDashboardHtml(): string {
       }
 
       list.innerHTML='';
-      if(!entries.length){list.innerHTML='<div class="empty-msg">No logs found.</div>';return}
-
+      var shown=0,total=entries.length;
       for(var i=0;i<entries.length;i++){
         var e=entries[i];
         if(fSub&&e.subsystem.indexOf(fSub)<0)continue;
         if(!isLevelEnabled(e.level))continue;
         if(fSrch&&e.message.toLowerCase().indexOf(fSrch)<0&&e.subsystem.toLowerCase().indexOf(fSrch)<0)continue;
         list.appendChild(buildLogTabRow(e));
+        shown++;
       }
+      if(!shown){list.innerHTML='<div class="empty-msg">No logs match your filters. '+(truncated?'Try checking "All logs" to search the full log file.':'')+'</div>';return}
       if($('lA').checked)list.scrollTop=list.scrollHeight;
     }).catch(function(){$('logList').innerHTML='<div class="empty-msg">Failed to load.</div>'});
   }
@@ -755,6 +788,7 @@ export function getDashboardHtml(): string {
   $('lR').addEventListener('click',refreshLogs);
   $('lE').addEventListener('click',exportLogs);
   $('lF').addEventListener('change',refreshLogs);
+  $('lAll').addEventListener('change',refreshLogs);
   var sDb;$('lS').addEventListener('input',function(){clearTimeout(sDb);sDb=setTimeout(refreshLogs,300)});
 
   // Level filter checkboxes
@@ -821,7 +855,7 @@ export function getDashboardHtml(): string {
     var cds=s.cooldowns||{};
     if(s.rules)for(var i=0;i<s.rules.length;i++){
       var r=s.rules[i];
-      var cdTs=cds[r.id];
+      var cdTs=findLastFired(cds,r.id);
       var lastFired=cdTs?fAgo(cdTs):'--';
       html+='<tr><td>'+esc(r.id)+'</td><td>'+(r.status==='fired'?'<span style="color:#f85149;font-weight:700">FIRING</span>':'<span style="color:#3fb950">OK</span>')+'</td><td>'+lastFired+'</td></tr>';
     }
@@ -833,34 +867,12 @@ export function getDashboardHtml(): string {
       html+='</table></div>';
     }
 
-    // Circuit Breakers (when backend exposes this)
-    if(s.circuitBreakers&&s.circuitBreakers.length){
-      html+='<div class="h-sec"><h3>Circuit Breakers</h3><table class="h-tbl"><tr><th>Category</th><th>Name</th><th>State</th><th>Failures</th><th>Last Change</th></tr>';
-      for(var k=0;k<s.circuitBreakers.length;k++){
-        var cb=s.circuitBreakers[k];
-        var stColor=cb.state==='CLOSED'?'#3fb950':cb.state==='OPEN'?'#f85149':'#d29922';
-        html+='<tr><td>'+esc(cb.category)+'</td><td>'+esc(cb.name)+'</td><td style="color:'+stColor+';font-weight:700">'+cb.state+'</td><td>'+cb.failures+'</td><td>'+fAgo(cb.lastStateChange)+'</td></tr>';
-      }
-      html+='</table></div>';
-    }
-
-    // Task Timeouts (when backend exposes this)
-    if(s.taskTimeouts&&s.taskTimeouts.length){
-      html+='<div class="h-sec"><h3>Running Tasks</h3><table class="h-tbl"><tr><th>Type</th><th>ID</th><th>Duration</th><th>Timeout</th><th>Status</th></tr>';
-      for(var l=0;l<s.taskTimeouts.length;l++){
-        var tt=s.taskTimeouts[l];
-        var dur=Date.now()-tt.startedAt;
-        var pct=Math.floor((dur/tt.timeoutMs)*100);
-        var warn=pct>80;
-        html+='<tr><td>'+esc(tt.type)+'</td><td>'+esc(tt.id.slice(0,12))+'</td><td>'+fD(dur)+'</td><td>'+fD(tt.timeoutMs)+'</td><td style="color:'+(warn?'#d29922':'#3fb950')+'">'+pct+'%</td></tr>';
-      }
-      html+='</table></div>';
-    }
-
     hEl.innerHTML=html;
   }
   function hCard(l,v,c){return'<div class="h-card"><div class="lb">'+esc(l)+'</div><div class="vl '+(c||'')+'">'+esc(String(v))+'</div></div>'}
   function hTr(l,v){return'<tr><td>'+esc(l)+'</td><td><b>'+esc(String(v))+'</b></td></tr>'}
+  /** Find the most recent cooldown timestamp for a rule ID (handles contextual fingerprints like "llm-errors:telegram"). */
+  function findLastFired(cds,ruleId){var latest=0;for(var k in cds){if(k===ruleId||k.indexOf(ruleId+':')===0){if(cds[k]>latest)latest=cds[k]}}return latest||null}
 
   // ─── Debug tab ──────────────────────
   function refreshDebug(){
@@ -907,18 +919,13 @@ export function getDashboardHtml(): string {
     var cds=s.cooldowns||{};
     if(s.rules)for(var i=0;i<s.rules.length;i++){
       var r=s.rules[i];
-      var cdTs=cds[r.id];
+      var cdTs=findLastFired(cds,r.id);
       var lastFired=cdTs?fAgo(cdTs):'never';
       rulesHtml+='<tr><td>'+esc(r.id)+'</td><td>'+(r.status==='fired'?'<span style="color:#f85149;font-weight:700">FIRING</span>':'<span style="color:#3fb950">OK</span>')+'</td><td>'+lastFired+'</td></tr>';
     }
     rulesHtml+='</table>';
     $('dbRules').innerHTML=rulesHtml;
 
-    // Circuit breakers (placeholder - will be populated when backend exposes this)
-    $('dbCircuit').innerHTML='<div style="color:#8b949e;padding:8px">Circuit breaker state not yet exposed by backend</div>';
-
-    // Task timeouts (placeholder - will be populated when backend exposes this)
-    $('dbTasks').innerHTML='<div style="color:#8b949e;padding:8px">Task timeout state not yet exposed by backend</div>';
   }
   $('dbRefresh').addEventListener('click',refreshDebug);
 

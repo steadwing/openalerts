@@ -98,7 +98,7 @@ export type MonitorConfig = {
   maxLogSizeKb?: number; // default 512
   maxLogAgeDays?: number; // default 7
   quiet?: boolean; // log-only, no messages
-  llmEnriched?: boolean; // default true — use LLM for smart alert summaries
+  llmEnriched?: boolean; // default false — opt-in LLM smart alert summaries
   rules?: Record<string, RuleOverride>;
 };
 

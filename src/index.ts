@@ -65,8 +65,8 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 			const target = await resolveAlertTarget(api, config);
 			const channels = target ? [new OpenClawAlertChannel(api, target)] : [];
 
-			// Create LLM enricher if enabled (default: true)
-			const enricher = config.llmEnriched !== false
+			// Create LLM enricher if enabled (default: false)
+			const enricher = config.llmEnriched === true
 				? createOpenClawEnricher(api, logger)
 				: null;
 

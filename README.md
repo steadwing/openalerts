@@ -14,7 +14,7 @@
 <p align="center">
   <a href="#quickstart">Quickstart</a> &middot;
   <a href="#alert-rules">Alert Rules</a> &middot;
-  <a href="#configuration">Configuration</a> &middot;
+  <a href="#llm-enriched-alerts">LLM Enrichment</a> &middot;
   <a href="#dashboard">Dashboard</a> &middot;
   <a href="#commands">Commands</a>
 </p>
@@ -84,38 +84,24 @@ http://127.0.0.1:18789/openalerts
 
 ## Alert Rules
 
-Eight rules run against every event in real-time:
+Eight rules run against every event in real-time. All thresholds and cooldowns are configurable.
 
-| Rule | Watches for | Severity |
-|---|---|---|
-| **llm-errors** | 1+ LLM/agent failure in 1 minute | ERROR |
-| **infra-errors** | 1+ infrastructure error in 1 minute | ERROR |
-| **gateway-down** | No heartbeat for 30+ seconds | CRITICAL |
-| **session-stuck** | Session idle for 120+ seconds | WARN |
-| **high-error-rate** | 50%+ of last 20 messages failed | ERROR |
-| **queue-depth** | 10+ items queued | WARN |
-| **tool-errors** | 1+ tool failure in 1 minute | WARN |
-| **heartbeat-fail** | 3 consecutive heartbeat failures | ERROR |
+| Rule | Watches for | Severity | Threshold (default) |
+|---|---|---|---|
+| `llm-errors` | LLM/agent failures in 1 min window | ERROR | `1` error |
+| `infra-errors` | Infrastructure errors in 1 min window | ERROR | `1` error |
+| `gateway-down` | No heartbeat received | CRITICAL | `30000` ms (30s) |
+| `session-stuck` | Session idle too long | WARN | `120000` ms (2 min) |
+| `high-error-rate` | Message failure rate over last 20 | ERROR | `50`% |
+| `queue-depth` | Queued items piling up | WARN | `10` items |
+| `tool-errors` | Tool failures in 1 min window | WARN | `1` error |
+| `heartbeat-fail` | Consecutive heartbeat failures | ERROR | `3` failures |
 
-All thresholds and cooldowns are [configurable per-rule](#advanced-configuration).
+Every rule also accepts:
+- **`enabled`** — `false` to disable the rule (default: `true`)
+- **`cooldownMinutes`** — minutes before the same rule can fire again (default: `15`)
 
-## LLM-Enriched Alerts
-
-By default, OpenAlerts uses your configured LLM model to enrich alerts with a human-friendly summary and an actionable suggestion. The enrichment is appended below the original alert detail:
-
-```
-1 agent error(s) on unknown in the last minute. Last: 401 Incorrect API key...
-
-Summary: Your OpenAI API key is invalid or expired — the agent cannot make LLM calls.
-Action: Update your API key in ~/.openclaw/.env with a valid key from platform.openai.com/api-keys
-```
-
-- **Model**: reads from `agents.defaults.model.primary` in your `openclaw.json` (e.g. `"openai/gpt-4o-mini"`)
-- **API key**: reads from the corresponding environment variable (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, etc.)
-- **Supported providers**: OpenAI, Anthropic, Groq, Together, DeepSeek (and any OpenAI-compatible API)
-- **Graceful fallback**: if the LLM call fails or times out (10s), the original alert is sent unchanged
-
-To disable LLM enrichment, set `"llmEnriched": false` in your plugin config:
+To tune rules, add a `rules` object in your plugin config:
 
 ```jsonc
 {
@@ -123,27 +109,7 @@ To disable LLM enrichment, set `"llmEnriched": false` in your plugin config:
     "entries": {
       "openalerts": {
         "config": {
-          "llmEnriched": false
-        }
-      }
-    }
-  }
-}
-```
-
-## Advanced Configuration
-
-Each rule can be individually tuned or disabled. You can also set global options like `cooldownMinutes` (default: `15`) and `quiet: true` for log-only mode.
-
-**Step 1.** Add a `rules` object inside `plugins.entries.openalerts.config` in your `~/.openclaw/openclaw.json`:
-
-```jsonc
-{
-  "plugins": {
-    "entries": {
-      "openalerts": {
-        "enabled": true,
-        "config": {
+          "cooldownMinutes": 10,
           "rules": {
             "llm-errors": { "threshold": 5 },
             "infra-errors": { "cooldownMinutes": 30 },
@@ -157,28 +123,25 @@ Each rule can be individually tuned or disabled. You can also set global options
 }
 ```
 
-**Step 2.** Restart the gateway to apply:
+Set `"quiet": true` at the config level for log-only mode (no messages sent).
 
-```bash
-openclaw gateway stop && openclaw gateway run
+## LLM-Enriched Alerts
+
+By default, OpenAlerts uses your configured LLM to enrich alerts with a human-friendly summary and an actionable suggestion:
+
+```
+1 agent error(s) on unknown in the last minute. Last: 401 Incorrect API key...
+
+Summary: Your OpenAI API key is invalid or expired — the agent cannot make LLM calls.
+Action: Update your API key in ~/.openclaw/.env with a valid key from platform.openai.com/api-keys
 ```
 
-### Rule reference
+- **Model**: reads from `agents.defaults.model.primary` in your `openclaw.json` (e.g. `"openai/gpt-4o-mini"`)
+- **API key**: reads from the corresponding environment variable (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, etc.)
+- **Supported providers**: OpenAI, Anthropic, Groq, Together, DeepSeek (and any OpenAI-compatible API)
+- **Graceful fallback**: if the LLM call fails or times out (10s), the original alert is sent unchanged
 
-| Rule | `threshold` unit | Default |
-|---|---|---|
-| `llm-errors` | Error count in 1 min window | `1` |
-| `infra-errors` | Error count in 1 min window | `1` |
-| `gateway-down` | Milliseconds without heartbeat | `30000` (30s) |
-| `session-stuck` | Milliseconds idle | `120000` (2 min) |
-| `high-error-rate` | Error percentage (0-100) | `50` |
-| `queue-depth` | Number of queued items | `10` |
-| `tool-errors` | Error count in 1 min window | `1` |
-| `heartbeat-fail` | Consecutive failures | `3` |
-
-Every rule also accepts:
-- **`enabled`** — `false` to disable the rule (default: `true`)
-- **`cooldownMinutes`** — minutes before the same rule can fire again (default: `15`)
+To disable, set `"llmEnriched": false` in your plugin config.
 
 ## Commands
 

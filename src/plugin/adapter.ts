@@ -1,12 +1,17 @@
 import type {
 	AlertChannel,
+	AlertEnricher,
 	AlertEvent,
 	AlertTarget,
 	MonitorConfig,
 	OpenAlertsEvent,
 	OpenAlertsEventType,
 } from "../core/index.js";
+import { createLlmEnricher } from "../core/llm-enrichment.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { homedir } from "node:os";
 
 // ─── Diagnostic Event Translation ───────────────────────────────────────────
 //
@@ -296,7 +301,7 @@ export function translateMessageSentHook(
 		sessionKey: context.sessionId,
 		outcome: data.success ? "success" : "error",
 		error: data.error,
-		meta: { to: data.to, source: "hook:message_sent" },
+		meta: { to: data.to, content: data.content, source: "hook:message_sent" },
 	};
 }
 
@@ -342,6 +347,7 @@ export function translateMessageReceivedHook(
 		outcome: "success",
 		meta: {
 			from: data.from,
+			content: data.content,
 			accountId: context.accountId,
 			openclawHook: "message_received",
 			source: "hook:message_received",
@@ -413,6 +419,7 @@ export function translateAfterCompactionHook(
 			messageCount: data.messageCount,
 			tokenCount: data.tokenCount,
 			compactedCount: data.compactedCount,
+			compaction: true,
 			openclawHook: "after_compaction",
 			source: "hook:after_compaction",
 		},
@@ -435,6 +442,7 @@ export function translateMessageSendingHook(
 		outcome: "success",
 		meta: {
 			to: data.to,
+			content: data.content,
 			accountId: context.accountId,
 			openclawHook: "message_sending",
 			source: "hook:message_sending",
@@ -477,6 +485,7 @@ export class OpenClawAlertChannel implements AlertChannel {
 	readonly name: string;
 	private api: OpenClawPluginApi;
 	private target: AlertTarget;
+	private warnedMissing = false;
 
 	constructor(api: OpenClawPluginApi, target: AlertTarget) {
 		this.api = api;
@@ -487,7 +496,13 @@ export class OpenClawAlertChannel implements AlertChannel {
 	async send(alert: AlertEvent, formatted: string): Promise<void> {
 		const runtime = this.api.runtime as Record<string, unknown>;
 		const channel = runtime.channel as Record<string, unknown> | undefined;
-		if (!channel) return;
+		if (!channel) {
+			if (!this.warnedMissing) {
+				this.warnedMissing = true;
+				throw new Error(`runtime.channel not available — alert dropped`);
+			}
+			return;
+		}
 
 		const opts = this.target.accountId
 			? { accountId: this.target.accountId }
@@ -502,7 +517,9 @@ export class OpenClawAlertChannel implements AlertChannel {
 		};
 
 		const methodName = channelMethods[this.target.channel];
-		if (!methodName) return;
+		if (!methodName) {
+			throw new Error(`unsupported channel "${this.target.channel}" — no send method mapped`);
+		}
 
 		const channelMod = channel[this.target.channel] as
 			| Record<string, unknown>
@@ -515,9 +532,11 @@ export class OpenClawAlertChannel implements AlertChannel {
 			  ) => Promise<unknown>)
 			| undefined;
 
-		if (sendFn) {
-			await sendFn(this.target.to, formatted, opts);
+		if (!sendFn) {
+			throw new Error(`${this.target.channel}.${methodName} not found on runtime — alert dropped`);
 		}
+
+		await sendFn(this.target.to, formatted, opts);
 	}
 }
 
@@ -526,10 +545,10 @@ export class OpenClawAlertChannel implements AlertChannel {
 /**
  * Resolve the alert target from plugin config or by auto-detecting from OpenClaw config.
  */
-export function resolveAlertTarget(
+export async function resolveAlertTarget(
 	api: OpenClawPluginApi,
 	pluginConfig: MonitorConfig,
-): AlertTarget | null {
+): Promise<AlertTarget | null> {
 	// 1. Explicit config
 	if (pluginConfig.alertChannel && pluginConfig.alertTo) {
 		return {
@@ -540,8 +559,10 @@ export function resolveAlertTarget(
 	}
 
 	const cfg = api.config;
+	const channelsCfg =
+		((cfg as Record<string, unknown>).channels as Record<string, unknown>) ??
+		{};
 
-	// 2. Auto-detect from configured channels
 	const channelKeys = [
 		"telegram",
 		"discord",
@@ -550,8 +571,9 @@ export function resolveAlertTarget(
 		"signal",
 	] as const;
 
+	// 2. Auto-detect from static allowFrom in channel config
 	for (const channelKey of channelKeys) {
-		const channelConfig = (cfg as Record<string, unknown>)[channelKey];
+		const channelConfig = channelsCfg[channelKey];
 		if (!channelConfig || typeof channelConfig !== "object") continue;
 
 		const target = extractFirstAllowFrom(
@@ -559,6 +581,31 @@ export function resolveAlertTarget(
 			channelConfig as Record<string, unknown>,
 		);
 		if (target) return target;
+	}
+
+	// 3. Auto-detect from pairing store (runtime-paired users)
+	// The store lives at ~/.openclaw/credentials/<channel>-allowFrom.json
+	const credDir = join(
+		process.env.OPENCLAW_HOME ?? join(homedir(), ".openclaw"),
+		"credentials",
+	);
+
+	for (const channelKey of channelKeys) {
+		const channelConfig = channelsCfg[channelKey];
+		if (!channelConfig || typeof channelConfig !== "object") continue;
+
+		try {
+			const raw = await readFile(
+				join(credDir, `${channelKey}-allowFrom.json`),
+				"utf-8",
+			);
+			const data = JSON.parse(raw) as { allowFrom?: string[] };
+			if (Array.isArray(data.allowFrom) && data.allowFrom.length > 0) {
+				return { channel: channelKey, to: String(data.allowFrom[0]) };
+			}
+		} catch {
+			// File doesn't exist or isn't valid — skip this channel
+		}
 	}
 
 	return null;
@@ -609,9 +656,44 @@ export function parseConfig(
 		maxLogAgeDays:
 			typeof raw.maxLogAgeDays === "number" ? raw.maxLogAgeDays : undefined,
 		quiet: typeof raw.quiet === "boolean" ? raw.quiet : undefined,
+		llmEnriched:
+			typeof raw.llmEnriched === "boolean" ? raw.llmEnriched : undefined,
 		rules:
 			raw.rules && typeof raw.rules === "object"
 				? (raw.rules as MonitorConfig["rules"])
 				: undefined,
 	};
+}
+
+// ─── LLM Enricher Factory ───────────────────────────────────────────────────
+
+/**
+ * Create an AlertEnricher from the OpenClaw plugin API.
+ * Reads the model from api.config.agents.defaults.model.primary (e.g. "openai/gpt-5-nano")
+ * and resolves the API key from process.env.
+ * Returns null if no model is configured or enricher can't be created.
+ */
+export function createOpenClawEnricher(
+	api: OpenClawPluginApi,
+	logger?: { info: (msg: string) => void; warn: (msg: string) => void; error: (msg: string) => void },
+): AlertEnricher | null {
+	try {
+		const cfg = api.config as Record<string, unknown>;
+		const agents = cfg.agents as Record<string, unknown> | undefined;
+		const defaults = agents?.defaults as Record<string, unknown> | undefined;
+		const model = defaults?.model as Record<string, unknown> | undefined;
+		const primary = model?.primary;
+
+		if (typeof primary !== "string" || !primary.includes("/")) {
+			logger?.warn(
+				"openalerts: llm-enrichment skipped — no model configured at agents.defaults.model.primary",
+			);
+			return null;
+		}
+
+		return createLlmEnricher({ modelString: primary, logger });
+	} catch (err) {
+		logger?.warn(`openalerts: llm-enrichment setup failed: ${String(err)}`);
+		return null;
+	}
 }

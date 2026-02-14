@@ -84,7 +84,7 @@ export function processEvent(
     state.stats.lastResetTs = now;
   }
 
-  // Track event types in stats
+  // Track event types in stats (independent of rule enabled state)
   if (event.type === "infra.error") {
     state.stats.webhookErrors++;
   }
@@ -100,6 +100,16 @@ export function processEvent(
   }
   if (event.type === "session.start") {
     state.stats.sessionsStarted++;
+  }
+  if (event.type === "session.stuck") {
+    state.stats.stuckSessions++;
+  }
+  if (event.type === "llm.call" || event.type === "llm.error" || event.type === "agent.error") {
+    state.stats.messagesProcessed++;
+    if (event.type === "llm.error" || event.type === "agent.error" ||
+        event.outcome === "error" || event.outcome === "timeout") {
+      state.stats.messageErrors++;
+    }
   }
   if (event.type === "llm.token_usage") {
     if (typeof event.tokenCount === "number") state.stats.totalTokens += event.tokenCount;
@@ -122,7 +132,13 @@ export function processEvent(
   const fired: AlertEvent[] = [];
 
   for (const rule of ALL_RULES) {
-    const alert = rule.evaluate(event, ctx);
+    let alert: AlertEvent | null;
+    try {
+      alert = rule.evaluate(event, ctx);
+    } catch {
+      // One broken rule must never block the rest
+      continue;
+    }
     if (!alert) continue;
 
     // Check cooldown

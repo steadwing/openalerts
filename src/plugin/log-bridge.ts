@@ -327,6 +327,32 @@ export function createLogBridge(engine: OpenAlertsEngine): {
 		});
 	}
 
+	// ── Lane task error (diagnostic) ────────────────────────────────────────────
+	// Safety net: catches lane-level errors from diagnostic logs.
+	// The agent_end hook already covers agent errors → llm-errors rule.
+	// This emits as infra.error to avoid double-counting in the llm-errors window
+	// while still ensuring infra-errors fires if the hook path fails.
+	// Format: "lane task error: lane=main durationMs=1 error="Error: ...""
+
+	function handleLaneTaskError(rec: ParsedLogRecord): void {
+		const { lane, error: errorMsg } = rec.kvs;
+		const dedupeKey = `lane-error:${lane}:${rec.ts}`;
+		if (dedupeSet.has(dedupeKey)) return;
+		dedupeSet.add(dedupeKey);
+
+		ingest({
+			type: "infra.error",
+			ts: rec.ts,
+			outcome: "error",
+			error: errorMsg,
+			meta: {
+				lane,
+				source: "log-bridge",
+				openclawLog: "lane_task_error",
+			},
+		});
+	}
+
 	// ── Exec command (exec) ────────────────────────────────────────────────────
 
 	function handleExecCommand(rec: ParsedLogRecord): void {
@@ -362,6 +388,8 @@ export function createLogBridge(engine: OpenAlertsEngine): {
 		} else if (rec.subsystem === "diagnostic") {
 			if (msg.startsWith("session state:")) {
 				handleSessionState(rec);
+			} else if (msg.startsWith("lane task error:")) {
+				handleLaneTaskError(rec);
 			}
 		} else if (rec.subsystem === "exec") {
 			if (msg.startsWith("elevated command")) {

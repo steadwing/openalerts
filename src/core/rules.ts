@@ -54,7 +54,7 @@ function isRuleEnabled(ctx: RuleContext, ruleId: string): boolean {
 const infraErrors: AlertRuleDefinition = {
 	id: "infra-errors",
 	defaultCooldownMs: 15 * 60 * 1000,
-	defaultThreshold: 3,
+	defaultThreshold: 1,
 
 	evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
 		if (event.type !== "infra.error") return null;
@@ -63,8 +63,8 @@ const infraErrors: AlertRuleDefinition = {
 		const channel = event.channel ?? "unknown";
 		pushWindow(ctx, "infra-errors", { ts: ctx.now });
 
-		const threshold = getRuleThreshold(ctx, "infra-errors", 3);
-		const windowMs = 5 * 60 * 1000; // 5 minutes
+		const threshold = getRuleThreshold(ctx, "infra-errors", 1);
+		const windowMs = 60 * 1000; // 1 minute
 		const count = countInWindow(ctx, "infra-errors", windowMs);
 
 		if (count < threshold) return null;
@@ -76,7 +76,7 @@ const infraErrors: AlertRuleDefinition = {
 			ruleId: "infra-errors",
 			severity: "error",
 			title: "Infrastructure errors spike",
-			detail: `${count} infra errors on ${channel} in the last 5 minutes.`,
+			detail: `${count} infra error(s) on ${channel} in the last minute.${event.error ? ` Last: ${event.error}` : ""}`,
 			ts: ctx.now,
 			fingerprint,
 		};
@@ -88,35 +88,38 @@ const infraErrors: AlertRuleDefinition = {
 const llmErrors: AlertRuleDefinition = {
 	id: "llm-errors",
 	defaultCooldownMs: 15 * 60 * 1000,
-	defaultThreshold: 3,
+	defaultThreshold: 1,
 
 	evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
-		if (event.type !== "llm.call") return null;
+		// Trigger on LLM call/error events AND agent errors (agent failing before/during LLM call)
+		if (event.type !== "llm.call" && event.type !== "llm.error" && event.type !== "agent.error") return null;
 		if (!isRuleEnabled(ctx, "llm-errors")) return null;
 
-		// Track all LLM calls for stats
-		ctx.state.stats.messagesProcessed++;
-
-		if (event.outcome !== "error") return null;
-
-		ctx.state.stats.messageErrors++;
+		// Stats are tracked in the evaluator (independent of rule state).
+		// Only proceed for actual errors:
+		if (event.type === "llm.call") {
+			// Only explicit error/timeout outcomes trigger alerting; undefined = OK
+			if (event.outcome !== "error" && event.outcome !== "timeout") return null;
+		}
+		// llm.error and agent.error are always errors — no outcome check needed
 		const channel = event.channel ?? "unknown";
 		pushWindow(ctx, "llm-errors", { ts: ctx.now });
 
-		const threshold = getRuleThreshold(ctx, "llm-errors", 3);
-		const windowMs = 5 * 60 * 1000;
+		const threshold = getRuleThreshold(ctx, "llm-errors", 1);
+		const windowMs = 60 * 1000; // 1 minute
 		const count = countInWindow(ctx, "llm-errors", windowMs);
 
 		if (count < threshold) return null;
 
 		const fingerprint = `llm-errors:${channel}`;
+		const label = event.type === "agent.error" ? "agent error(s)" : "LLM error(s)";
 		return {
 			type: "alert",
 			id: makeAlertId("llm-errors", fingerprint, ctx.now),
 			ruleId: "llm-errors",
 			severity: "error",
 			title: "LLM call errors",
-			detail: `${count} LLM errors on ${channel} in the last 5 minutes.`,
+			detail: `${count} ${label} on ${channel} in the last minute.${event.error ? ` Last: ${event.error}` : ""}`,
 			ts: ctx.now,
 			fingerprint,
 		};
@@ -134,8 +137,7 @@ const sessionStuck: AlertRuleDefinition = {
 		if (event.type !== "session.stuck") return null;
 		if (!isRuleEnabled(ctx, "session-stuck")) return null;
 
-		ctx.state.stats.stuckSessions++;
-
+		// Stats tracked in evaluator (independent of rule state)
 		const ageMs = event.ageMs ?? 0;
 		const threshold = getRuleThreshold(ctx, "session-stuck", 120_000);
 		if (ageMs < threshold) return null;
@@ -191,11 +193,8 @@ const heartbeatFail: AlertRuleDefinition = {
 			};
 		}
 
-		// Reset on success
-		if (event.outcome === "success") {
-			ctx.state.consecutives.set(counterKey, 0);
-		}
-
+		// Reset on any non-error (success, undefined, etc.)
+		ctx.state.consecutives.set(counterKey, 0);
 		return null;
 	},
 };
@@ -211,12 +210,13 @@ const queueDepth: AlertRuleDefinition = {
 		// Fire on heartbeat (which carries queue depth) and dedicated queue_depth events
 		if (event.type !== "infra.heartbeat" && event.type !== "infra.queue_depth")
 			return null;
-		if (!isRuleEnabled(ctx, "queue-depth")) return null;
 
-		// Update last heartbeat timestamp (used by gateway-down rule)
+		// Always update heartbeat timestamp regardless of rule state (gateway-down depends on it)
 		if (event.type === "infra.heartbeat") {
 			ctx.state.lastHeartbeatTs = ctx.now;
 		}
+
+		if (!isRuleEnabled(ctx, "queue-depth")) return null;
 
 		const queued = event.queueDepth ?? 0;
 		const threshold = getRuleThreshold(ctx, "queue-depth", 10);
@@ -244,10 +244,15 @@ const highErrorRate: AlertRuleDefinition = {
 	defaultThreshold: 50, // percent
 
 	evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
-		if (event.type !== "llm.call") return null;
+		if (event.type !== "llm.call" && event.type !== "llm.error" && event.type !== "agent.error") return null;
 		if (!isRuleEnabled(ctx, "high-error-rate")) return null;
 
-		const isError = event.outcome === "error";
+		// agent.error and llm.error are always errors; llm.call checks outcome (timeout counts as error)
+		const isError =
+			event.type === "agent.error" ||
+			event.type === "llm.error" ||
+			event.outcome === "error" ||
+			event.outcome === "timeout";
 		pushWindow(ctx, "msg-outcomes", { ts: ctx.now, value: isError ? 1 : 0 });
 
 		const window = ctx.state.windows.get("msg-outcomes");
@@ -275,12 +280,46 @@ const highErrorRate: AlertRuleDefinition = {
 	},
 };
 
+// ─── Rule: tool-errors ───────────────────────────────────────────────────
+
+const toolErrors: AlertRuleDefinition = {
+	id: "tool-errors",
+	defaultCooldownMs: 15 * 60 * 1000,
+	defaultThreshold: 1, // 1 tool error in 1 minute
+
+	evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
+		if (event.type !== "tool.error") return null;
+		if (!isRuleEnabled(ctx, "tool-errors")) return null;
+
+		pushWindow(ctx, "tool-errors", { ts: ctx.now });
+
+		const threshold = getRuleThreshold(ctx, "tool-errors", 1);
+		const windowMs = 60 * 1000; // 1 minute
+		const count = countInWindow(ctx, "tool-errors", windowMs);
+
+		if (count < threshold) return null;
+
+		const toolName = (event.meta?.toolName as string) ?? "unknown";
+		const fingerprint = `tool-errors:${toolName}`;
+		return {
+			type: "alert",
+			id: makeAlertId("tool-errors", fingerprint, ctx.now),
+			ruleId: "tool-errors",
+			severity: "warn",
+			title: "Tool errors spike",
+			detail: `${count} tool error(s) in the last minute.${event.error ? ` Last: ${event.error}` : ""}`,
+			ts: ctx.now,
+			fingerprint,
+		};
+	},
+};
+
 // ─── Rule: gateway-down ──────────────────────────────────────────────────────
 
 const gatewayDown: AlertRuleDefinition = {
 	id: "gateway-down",
 	defaultCooldownMs: 60 * 60 * 1000,
-	defaultThreshold: 90_000, // 90 seconds
+	defaultThreshold: 30_000, // 30 seconds
 
 	evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
 		// This rule is called by the watchdog timer, not by events directly.
@@ -328,5 +367,6 @@ export const ALL_RULES: AlertRuleDefinition[] = [
 	heartbeatFail,
 	queueDepth,
 	highErrorRate,
+	toolErrors,
 	gatewayDown,
 ];

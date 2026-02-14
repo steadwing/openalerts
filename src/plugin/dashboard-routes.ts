@@ -49,6 +49,7 @@ const RULE_IDS = [
 	"heartbeat-fail",
 	"queue-depth",
 	"high-error-rate",
+	"tool-errors",
 	"gateway-down",
 ];
 
@@ -57,9 +58,20 @@ function getRuleStatuses(
 ): Array<{ id: string; status: "ok" | "fired" }> {
 	const state = engine.state;
 	const now = Date.now();
+	const cooldownWindow = 15 * 60 * 1000;
+
 	return RULE_IDS.map((id) => {
-		const cooldownTs = state.cooldowns.get(id);
-		const fired = cooldownTs != null && cooldownTs > now - 15 * 60 * 1000;
+		// Cooldown keys are fingerprints like "llm-errors:unknown", not bare rule IDs.
+		// Check if ANY cooldown key starting with this rule ID has fired recently.
+		let fired = false;
+		for (const [key, ts] of state.cooldowns) {
+			if (key === id || key.startsWith(id + ":")) {
+				if (ts > now - cooldownWindow) {
+					fired = true;
+					break;
+				}
+			}
+		}
 		return { id, status: fired ? ("fired" as const) : ("ok" as const) };
 	});
 }
@@ -274,6 +286,23 @@ export function createDashboardHandler(
 				"Access-Control-Allow-Origin": "*",
 			});
 			res.flushHeaders();
+
+			// Send initial connection event so the browser knows the stream is live
+			res.write(`:ok\n\n`);
+
+			// Send current state snapshot as initial event
+			const state = engine.state;
+			res.write(`event: state\ndata: ${JSON.stringify({
+				uptimeMs: Date.now() - state.startedAt,
+				stats: state.stats,
+				rules: getRuleStatuses(engine),
+			})}\n\n`);
+
+			// Send event history so dashboard survives refreshes
+			const history = engine.getRecentLiveEvents(200);
+			if (history.length > 0) {
+				res.write(`event: history\ndata: ${JSON.stringify(history)}\n\n`);
+			}
 
 			// Subscribe to engine events
 			const unsub = engine.bus.on((event: OpenAlertsEvent) => {

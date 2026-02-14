@@ -76,6 +76,11 @@ export type AlertTarget = {
   accountId?: string;
 };
 
+// ─── Alert Enricher ─────────────────────────────────────────────────────────
+
+/** Enriches an alert with LLM-generated summary/action. Returns enriched alert or null to skip. */
+export type AlertEnricher = (alert: AlertEvent) => Promise<AlertEvent | null>;
+
 // ─── Config ─────────────────────────────────────────────────────────────────
 
 export type RuleOverride = {
@@ -93,6 +98,7 @@ export type MonitorConfig = {
   maxLogSizeKb?: number; // default 512
   maxLogAgeDays?: number; // default 7
   quiet?: boolean; // log-only, no messages
+  llmEnriched?: boolean; // default true — use LLM for smart alert summaries
   rules?: Record<string, RuleOverride>;
 };
 
@@ -111,6 +117,8 @@ export type OpenAlertsInitOptions = {
   logPrefix?: string;
   /** Diagnosis hint shown in critical alerts (e.g., 'Run "openclaw doctor"') */
   diagnosisHint?: string;
+  /** Optional LLM enricher — adds smart summaries to alerts before dispatch */
+  enricher?: AlertEnricher;
 };
 
 export type OpenAlertsLogger = {
@@ -192,5 +200,5 @@ export const DEFAULTS = {
   pruneIntervalMs: 6 * 60 * 60 * 1000, // 6 hours
   platformFlushIntervalMs: 5 * 60 * 1000, // 5 minutes
   platformBatchSize: 100,
-  gatewayDownThresholdMs: 90_000, // 90 seconds
+  gatewayDownThresholdMs: 30_000, // 30 seconds
 } as const;

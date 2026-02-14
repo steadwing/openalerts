@@ -423,6 +423,8 @@ export function getDashboardHtml(): string {
     var ft=ev.type||'?';
     if(ft==='custom'&&m.openclawEventType==='session.state')ft='session.'+(m.sessionState||'state');
     if(ft==='custom'&&m.openclawEventType==='message_sent')ft='msg.delivered';
+    if(ft==='custom'&&m.openclawHook==='message_received')ft='msg.in';
+    if(ft==='custom'&&m.openclawHook==='message_sending')ft='msg.out';
 
     var h='<div class="r-main">';
     h+='<span class="r-time">'+fT(ev.ts)+'</span>';
@@ -439,6 +441,7 @@ export function getDashboardHtml(): string {
     if(m.model)h+='<span class="p m">'+esc(String(m.model))+'</span>';
     if(ev.channel)h+='<span class="p ch">'+esc(ev.channel)+'</span>';
     if(m.messageCount!=null)h+='<span class="p">'+m.messageCount+' msgs</span>';
+    if(m.content){var preview=String(m.content);if(preview.length>60)preview=preview.slice(0,57)+'...';h+='<span class="p">'+esc(preview)+'</span>'}
     if(m.source&&String(m.source)!=='simulate')h+='<span class="p s">'+esc(String(m.source))+'</span>';
     h+='</span></div>';
 
@@ -596,17 +599,21 @@ export function getDashboardHtml(): string {
   // ─── SSE (OpenAlerts events + OpenClaw log tailing) ──────────────────────
   function connectSSE(){
     if(evSrc)evSrc.close();
-    evSrc=new EventSource('/openalerts/events');
-    evSrc.addEventListener('openalerts',function(e){try{addEvent(JSON.parse(e.data))}catch(_){}});
-    evSrc.addEventListener('oclog',function(e){try{addLogEntry(JSON.parse(e.data))}catch(_){}});
-    evSrc.onopen=function(){$('sDot').className='dot live';$('sConn').textContent='live'};
-    evSrc.onerror=function(){$('sDot').className='dot dead';$('sConn').textContent='reconnecting...'};
+    try{
+      evSrc=new EventSource('/openalerts/events');
+      evSrc.addEventListener('openalerts',function(e){try{addEvent(JSON.parse(e.data))}catch(_){}});
+      evSrc.addEventListener('history',function(e){try{var evs=JSON.parse(e.data);for(var i=0;i<evs.length;i++)addEvent(evs[i])}catch(_){}});
+      evSrc.addEventListener('oclog',function(e){try{addLogEntry(JSON.parse(e.data))}catch(_){}});
+      evSrc.onopen=function(){$('sDot').className='dot live';$('sConn').textContent='live'};
+      evSrc.onerror=function(e){$('sDot').className='dot dead';$('sConn').textContent='err:'+evSrc.readyState};
+    }catch(e){$('sConn').textContent='SSE fail:'+e.message}
   }
 
   // ─── State polling ──────────────────────
   var prevAl={};
   function pollState(){
-    fetch('/openalerts/state').then(function(r){return r.json()}).then(function(s){
+    fetch('/openalerts/state').then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).catch(function(e){$('sUp').textContent='fetch err: '+e.message;return null}).then(function(s){
+      if(!s)return;
       if(s.stats){
         $('sMsgs').textContent=s.stats.messagesProcessed||0;
         $('sErr').textContent=(s.stats.messageErrors||0)+(s.stats.webhookErrors||0)+(s.stats.toolErrors||0);
@@ -736,7 +743,7 @@ export function getDashboardHtml(): string {
       var btn=row.querySelector('.log-copy');
       if(btn)lines.push(btn.getAttribute('data-raw'));
     });
-    var blob=new Blob([lines.join('\n')],{type:'text/plain'});
+    var blob=new Blob([lines.join('\\n')],{type:'text/plain'});
     var url=URL.createObjectURL(blob);
     var a=document.createElement('a');
     a.href=url;a.download='openalerts-logs-'+Date.now()+'.txt';

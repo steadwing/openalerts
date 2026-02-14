@@ -37,7 +37,9 @@ openclaw plugins install @steadwing/openalerts
 
 ### 2. Configure
 
-Add to your `openclaw.json`:
+If you already have a channel paired with OpenClaw (e.g. Telegram via `openclaw pair`), **no config is needed** — OpenAlerts auto-detects where to send alerts.
+
+Otherwise, set it explicitly in `openclaw.json`:
 
 ```jsonc
 {
@@ -55,57 +57,18 @@ Add to your `openclaw.json`:
 }
 ```
 
+**Auto-detection priority:** explicit config > static `allowFrom` in channel config > pairing store.
+
 ### 3. Restart & verify
 
 ```bash
 openclaw gateway stop && openclaw gateway run
 ```
 
+
 Send `/health` to your bot. You should get a live status report back — zero LLM tokens consumed.
 
 That's it. OpenAlerts is now watching your agent.
-
-## Alert Rules
-
-Seven rules run against every event in real-time:
-
-| Rule | Watches for | Severity |
-|---|---|---|
-| **llm-errors** | 3+ LLM failures in 5 minutes | ERROR |
-| **infra-errors** | 3+ infrastructure errors in 5 minutes | ERROR |
-| **gateway-down** | No heartbeat for 90+ seconds | CRITICAL |
-| **session-stuck** | Session idle for 120+ seconds | WARN |
-| **high-error-rate** | 50%+ of last 20 messages failed | ERROR |
-| **queue-depth** | 10+ items queued | WARN |
-| **heartbeat-fail** | 3 consecutive heartbeat failures | ERROR |
-
-All thresholds and cooldowns are [configurable per-rule](#configuration).
-
-## Configuration
-
-Full config reference under `plugins.entries.openalerts.config`:
-
-```jsonc
-{
-  "alertChannel": "telegram",       // telegram | discord | slack | whatsapp | signal
-  "alertTo": "YOUR_CHAT_ID",        // chat/user ID on that channel
-  "cooldownMinutes": 15,            // minutes between repeated alerts (default: 15)
-  "quiet": false,                   // true = log only, no messages sent
-
-  "rules": {
-    "gateway-down": {
-      "threshold": 120000            // override: 2 min instead of 90s
-    },
-    "high-error-rate": {
-      "enabled": false               // disable a rule entirely
-    },
-    "llm-errors": {
-      "threshold": 5,                // require 5 errors instead of 3
-      "cooldownMinutes": 30          // longer cooldown for this rule
-    }
-  }
-}
-```
 
 ## Dashboard
 
@@ -119,6 +82,104 @@ http://127.0.0.1:18789/openalerts
 - **System Logs** — Filtered, structured logs with search
 - **Health** — Rule status, alert history, system stats
 
+## Alert Rules
+
+Eight rules run against every event in real-time:
+
+| Rule | Watches for | Severity |
+|---|---|---|
+| **llm-errors** | 1+ LLM/agent failure in 1 minute | ERROR |
+| **infra-errors** | 1+ infrastructure error in 1 minute | ERROR |
+| **gateway-down** | No heartbeat for 30+ seconds | CRITICAL |
+| **session-stuck** | Session idle for 120+ seconds | WARN |
+| **high-error-rate** | 50%+ of last 20 messages failed | ERROR |
+| **queue-depth** | 10+ items queued | WARN |
+| **tool-errors** | 1+ tool failure in 1 minute | WARN |
+| **heartbeat-fail** | 3 consecutive heartbeat failures | ERROR |
+
+All thresholds and cooldowns are [configurable per-rule](#advanced-configuration).
+
+## LLM-Enriched Alerts
+
+By default, OpenAlerts uses your configured LLM model to enrich alerts with a human-friendly summary and an actionable suggestion. The enrichment is appended below the original alert detail:
+
+```
+1 agent error(s) on unknown in the last minute. Last: 401 Incorrect API key...
+
+Summary: Your OpenAI API key is invalid or expired — the agent cannot make LLM calls.
+Action: Update your API key in ~/.openclaw/.env with a valid key from platform.openai.com/api-keys
+```
+
+- **Model**: reads from `agents.defaults.model.primary` in your `openclaw.json` (e.g. `"openai/gpt-4o-mini"`)
+- **API key**: reads from the corresponding environment variable (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, etc.)
+- **Supported providers**: OpenAI, Anthropic, Groq, Together, DeepSeek (and any OpenAI-compatible API)
+- **Graceful fallback**: if the LLM call fails or times out (10s), the original alert is sent unchanged
+
+To disable LLM enrichment, set `"llmEnriched": false` in your plugin config:
+
+```jsonc
+{
+  "plugins": {
+    "entries": {
+      "openalerts": {
+        "config": {
+          "llmEnriched": false
+        }
+      }
+    }
+  }
+}
+```
+
+## Advanced Configuration
+
+Each rule can be individually tuned or disabled. You can also set global options like `cooldownMinutes` (default: `15`) and `quiet: true` for log-only mode.
+
+**Step 1.** Add a `rules` object inside `plugins.entries.openalerts.config` in your `~/.openclaw/openclaw.json`:
+
+```jsonc
+{
+  "plugins": {
+    "entries": {
+      "openalerts": {
+        "enabled": true,
+        "config": {
+          "rules": {
+            "llm-errors": { "threshold": 5 },
+            "infra-errors": { "cooldownMinutes": 30 },
+            "high-error-rate": { "enabled": false },
+            "gateway-down": { "threshold": 60000 }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Step 2.** Restart the gateway to apply:
+
+```bash
+openclaw gateway stop && openclaw gateway run
+```
+
+### Rule reference
+
+| Rule | `threshold` unit | Default |
+|---|---|---|
+| `llm-errors` | Error count in 1 min window | `1` |
+| `infra-errors` | Error count in 1 min window | `1` |
+| `gateway-down` | Milliseconds without heartbeat | `30000` (30s) |
+| `session-stuck` | Milliseconds idle | `120000` (2 min) |
+| `high-error-rate` | Error percentage (0-100) | `50` |
+| `queue-depth` | Number of queued items | `10` |
+| `tool-errors` | Error count in 1 min window | `1` |
+| `heartbeat-fail` | Consecutive failures | `3` |
+
+Every rule also accepts:
+- **`enabled`** — `false` to disable the rule (default: `true`)
+- **`cooldownMinutes`** — minutes before the same rule can fire again (default: `15`)
+
 ## Commands
 
 Zero-token chat commands available in any connected channel:
@@ -128,18 +189,6 @@ Zero-token chat commands available in any connected channel:
 | `/health` | System health snapshot — uptime, active alerts, stats |
 | `/alerts` | Recent alert history with severity and timestamps |
 | `/dashboard` | Returns the dashboard URL |
-
-## Architecture
-
-```
-src/core/          Framework-agnostic engine, zero dependencies
-                   Rules engine, evaluator, event bus, state store, formatter
-
-src/plugin/        OpenClaw adapter plugin
-                   Event translation, alert routing, dashboard, chat commands
-```
-
-Everything ships as a single `@steadwing/openalerts` package. The core is completely framework-agnostic — adding monitoring for a new framework only requires writing an adapter.
 
 ## Development
 

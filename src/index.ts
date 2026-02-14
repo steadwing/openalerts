@@ -4,6 +4,7 @@ import { onDiagnosticEvent, registerLogTransport } from "openclaw/plugin-sdk";
 import { createLogBridge } from "./plugin/log-bridge.js";
 import {
 	OpenClawAlertChannel,
+	createOpenClawEnricher,
 	parseConfig,
 	resolveAlertTarget,
 	translateOpenClawEvent,
@@ -56,13 +57,18 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 	return {
 		id: PLUGIN_ID,
 
-		start(ctx) {
+		async start(ctx) {
 			const logger = ctx.logger;
 			const config = parseConfig(api.pluginConfig);
 
 			// Resolve alert target + create OpenClaw alert channel
-			const target = resolveAlertTarget(api, config);
+			const target = await resolveAlertTarget(api, config);
 			const channels = target ? [new OpenClawAlertChannel(api, target)] : [];
+
+			// Create LLM enricher if enabled (default: true)
+			const enricher = config.llmEnriched !== false
+				? createOpenClawEnricher(api, logger)
+				: null;
 
 			// Create and start the universal engine
 			engine = new OpenAlertsEngine({
@@ -72,6 +78,7 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 				logger,
 				logPrefix: LOG_PREFIX,
 				diagnosisHint: 'Run "openclaw doctor" to diagnose.',
+				enricher: enricher ?? undefined,
 			});
 
 			engine.start();
@@ -360,7 +367,7 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 				? `alerting to ${target.channel}:${target.to}`
 				: "log-only (no alert channel detected)";
 			logger.info(
-				`${LOG_PREFIX}: started, ${targetDesc}, log-bridge active, 7 rules active`,
+				`${LOG_PREFIX}: started, ${targetDesc}, log-bridge active, 8 rules active`,
 			);
 		},
 

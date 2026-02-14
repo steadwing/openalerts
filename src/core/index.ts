@@ -3,6 +3,7 @@
 // Types
 export type {
 	AlertChannel,
+	AlertEnricher,
 	AlertEvent,
 	AlertRuleDefinition,
 	AlertSeverity,
@@ -51,6 +52,9 @@ export {
 	readAllEvents,
 	readRecentEvents,
 } from "./store.js";
+
+// LLM Enrichment
+export { createLlmEnricher, type LlmEnricherOptions } from "./llm-enrichment.js";
 
 // Formatter
 export {

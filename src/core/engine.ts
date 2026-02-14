@@ -5,6 +5,7 @@ import { createPlatformSync, type PlatformSync } from "./platform.js";
 import { appendEvent, pruneLog, readAllEvents, readRecentEvents } from "./store.js";
 import {
   DEFAULTS,
+  type AlertEnricher,
   type AlertEvent,
   type EvaluatorState,
   type MonitorConfig,
@@ -28,16 +29,20 @@ export class OpenAlertsEngine {
   private stateDir: string;
   private dispatcher: AlertDispatcher;
   private platform: PlatformSync | null = null;
+  private enricher: AlertEnricher | null;
   private logger: OpenAlertsLogger;
   private logPrefix: string;
 
   private watchdogTimer: ReturnType<typeof setInterval> | null = null;
   private pruneTimer: ReturnType<typeof setInterval> | null = null;
   private running = false;
+  private eventRing: OpenAlertsEvent[] = [];
+  private static readonly RING_MAX = 500;
 
   constructor(options: OpenAlertsInitOptions) {
     this.config = options.config;
     this.stateDir = options.stateDir;
+    this.enricher = options.enricher ?? null;
     this.logger = options.logger ?? console;
     this.logPrefix = options.logPrefix ?? "openalerts";
 
@@ -82,7 +87,9 @@ export class OpenAlertsEngine {
     this.watchdogTimer = setInterval(() => {
       const alerts = processWatchdogTick(this.state, this.config);
       for (const alert of alerts) {
-        this.fireAlert(alert);
+        void this.fireAlert(alert).catch((err) => {
+          this.logger.error(`${this.logPrefix}: watchdog alert failed: ${String(err)}`);
+        });
       }
     }, DEFAULTS.watchdogIntervalMs);
 
@@ -101,7 +108,7 @@ export class OpenAlertsEngine {
     const channelNames = this.dispatcher.hasChannels
       ? `${this.dispatcher.channelCount} channel(s)`
       : "log-only (no alert channels)";
-    this.logger.info(`${this.logPrefix}: started, ${channelNames}, 7 rules active`);
+    this.logger.info(`${this.logPrefix}: started, ${channelNames}, 8 rules active`);
   }
 
   /** Ingest a universal event. Can be called directly or via the event bus. */
@@ -133,6 +140,22 @@ export class OpenAlertsEngine {
     this.dispatcher.addChannel(channel);
   }
 
+  /** Fire a test alert to verify delivery. */
+  sendTestAlert(): void {
+    void this.fireAlert({
+      type: "alert",
+      id: `test:manual:${Date.now()}`,
+      ruleId: "test",
+      severity: "info",
+      title: "Test alert — delivery verified",
+      detail: "This is a test alert from /test_alert. If you see this, alert delivery is working.",
+      ts: Date.now(),
+      fingerprint: "test:manual",
+    }).catch((err) => {
+      this.logger.error(`${this.logPrefix}: test alert failed: ${String(err)}`);
+    });
+  }
+
   /** Whether the platform sync is connected. */
   get platformConnected(): boolean {
     return this.platform?.isConnected() ?? false;
@@ -148,9 +171,20 @@ export class OpenAlertsEngine {
     return readRecentEvents(this.stateDir, limit);
   }
 
+  /** Get recent full events from the in-memory ring buffer (for dashboard history). */
+  getRecentLiveEvents(limit = 200): OpenAlertsEvent[] {
+    return this.eventRing.slice(-limit);
+  }
+
   // ─── Internal ──────────────────────────────────────────────────────────────
 
   private handleEvent(event: OpenAlertsEvent): void {
+    // Add to in-memory ring buffer
+    this.eventRing.push(event);
+    if (this.eventRing.length > OpenAlertsEngine.RING_MAX) {
+      this.eventRing = this.eventRing.slice(-OpenAlertsEngine.RING_MAX);
+    }
+
     // Persist as diagnostic snapshot
     const snapshot: StoredEvent = {
       type: "diagnostic",
@@ -169,15 +203,17 @@ export class OpenAlertsEngine {
     // Run through evaluator
     const alerts = processEvent(this.state, this.config, event);
     for (const alert of alerts) {
-      this.fireAlert(alert);
+      void this.fireAlert(alert).catch((err) => {
+        this.logger.error(`${this.logPrefix}: alert fire failed: ${String(err)}`);
+      });
     }
 
     // Forward to platform
     this.platform?.enqueue(snapshot);
   }
 
-  private fireAlert(alert: AlertEvent): void {
-    // Persist alert
+  private async fireAlert(alert: AlertEvent): Promise<void> {
+    // Persist alert (original, before enrichment)
     try {
       appendEvent(this.stateDir, alert);
     } catch (err) {
@@ -187,9 +223,20 @@ export class OpenAlertsEngine {
     // Forward to platform
     this.platform?.enqueue(alert);
 
+    // Enrich with LLM if enricher is available
+    let enriched = alert;
+    if (this.enricher) {
+      try {
+        const result = await this.enricher(alert);
+        if (result) enriched = result;
+      } catch (err) {
+        this.logger.warn(`${this.logPrefix}: llm enrichment failed, using original: ${String(err)}`);
+      }
+    }
+
     // Dispatch to channels (unless quiet mode)
     if (!this.config.quiet) {
-      void this.dispatcher.dispatch(alert).catch((err) => {
+      void this.dispatcher.dispatch(enriched).catch((err) => {
         this.logger.error(`${this.logPrefix}: alert dispatch failed: ${String(err)}`);
       });
     }

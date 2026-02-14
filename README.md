@@ -167,6 +167,11 @@ Zero-token chat commands available in any connected channel:
 | `/alerts` | Recent alert history with severity and timestamps |
 | `/dashboard` | Returns the dashboard URL |
 
+## Roadmap
+
+- [ ] [nanobot](https://github.com/HKUDS/nanobot) adapter
+- [ ] [OpenManus](https://github.com/FoundationAgents/OpenManus) adapter
+
 ## Development
 
 ```bash

@@ -1,6 +1,6 @@
 {
   "name": "@steadwing/openalerts",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "OpenAlerts — An alerting layer for agentic frameworks",
   "author": "Steadwing",

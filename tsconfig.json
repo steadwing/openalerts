@@ -1,12 +1,8 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true
+    "rootDir": "src",
+    "outDir": "dist"
   },
-  "include": [
-    "packages/core/src/**/*.ts",
-    "packages/node/src/**/*.ts",
-    "packages/alert/index.ts",
-    "packages/alert/src/**/*.ts"
-  ]
+  "include": ["src/**/*.ts"]
 }

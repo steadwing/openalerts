@@ -1,5 +1,5 @@
-import type { OpenAlertsEngine, AlertEvent } from "@steadwing/openalerts-core";
-import { formatAlertsOutput, formatHealthOutput } from "@steadwing/openalerts-core";
+import type { OpenAlertsEngine, AlertEvent } from "../core/index.js";
+import { formatAlertsOutput, formatHealthOutput } from "../core/index.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 
 type PluginCommandDef = {

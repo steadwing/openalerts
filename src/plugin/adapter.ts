@@ -5,7 +5,7 @@ import type {
 	MonitorConfig,
 	OpenAlertsEvent,
 	OpenAlertsEventType,
-} from "@steadwing/openalerts-core";
+} from "../core/index.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 
 // ─── Diagnostic Event Translation ───────────────────────────────────────────

@@ -1,7 +1,7 @@
-import { OpenAlertsEngine } from "@steadwing/openalerts-core";
+import { OpenAlertsEngine } from "./core/index.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { onDiagnosticEvent, registerLogTransport } from "openclaw/plugin-sdk";
-import { createLogBridge } from "./src/log-bridge.js";
+import { createLogBridge } from "./plugin/log-bridge.js";
 import {
 	OpenClawAlertChannel,
 	parseConfig,
@@ -21,12 +21,12 @@ import {
 	translateToolResultPersistHook,
 	translateGatewayStartHook,
 	translateGatewayStopHook,
-} from "./src/adapter.js";
-import { bindEngine, createMonitorCommands } from "./src/commands.js";
+} from "./plugin/adapter.js";
+import { bindEngine, createMonitorCommands } from "./plugin/commands.js";
 import {
 	createDashboardHandler,
 	closeDashboardConnections,
-} from "./src/dashboard-routes.js";
+} from "./plugin/dashboard-routes.js";
 
 const PLUGIN_ID = "openalerts";
 const LOG_PREFIX = "openalerts";

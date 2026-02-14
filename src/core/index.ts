@@ -1,4 +1,4 @@
-// @steadwing/openalerts-core — OpenAlerts engine
+// OpenAlerts core — engine, rules, evaluator, store
 
 // Types
 export type {

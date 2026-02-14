@@ -32,13 +32,7 @@ OpenAlerts watches your agent in real-time and alerts you the moment something g
 ### 1. Install
 
 ```bash
-npm install @steadwing/openalerts
-```
-
-Register the plugin:
-
-```bash
-openclaw plugins install ./node_modules/@steadwing/openalerts
+openclaw plugins install @steadwing/openalerts
 ```
 
 ### 2. Configure
@@ -138,22 +132,22 @@ Zero-token chat commands available in any connected channel:
 ## Architecture
 
 ```
-@steadwing/openalerts-core        Framework-agnostic engine, zero dependencies
-  Rules engine, evaluator, event bus, state store, formatter
+src/core/          Framework-agnostic engine, zero dependencies
+                   Rules engine, evaluator, event bus, state store, formatter
 
-@steadwing/openalerts             OpenClaw adapter plugin
-  Event translation, alert routing, dashboard, chat commands
+src/plugin/        OpenClaw adapter plugin
+                   Event translation, alert routing, dashboard, chat commands
 ```
 
-The core is completely framework-agnostic. Adding monitoring for a new framework only requires writing an adapter — the engine, rules, and dashboard are reused.
+Everything ships as a single `@steadwing/openalerts` package. The core is completely framework-agnostic — adding monitoring for a new framework only requires writing an adapter.
 
 ## Development
 
 ```bash
-npm install        # install workspace dependencies
-npm run build      # build all packages
+npm install        # install dependencies
+npm run build      # compile TypeScript
 npm run typecheck  # type-check without emitting
-npm run clean      # remove dist/ directories
+npm run clean      # remove dist/
 ```
 
 ## License

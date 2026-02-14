@@ -1,8 +1,8 @@
 import type {
 	OpenAlertsEngine,
 	OpenAlertsEvent,
-} from "@steadwing/openalerts-core";
-import { BoundedMap } from "@steadwing/openalerts-core";
+} from "../core/index.js";
+import { BoundedMap } from "../core/index.js";
 import type { LogTransportRecord } from "openclaw/plugin-sdk";
 
 // ─── Types ───────────────────────────────────────────────────────────────────

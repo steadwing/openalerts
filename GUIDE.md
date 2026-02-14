@@ -76,16 +76,17 @@ Things OpenClaw does NOT have natively that OpenAlerts provides:
 
 Adding support for a new AI agent framework (Nanobot, LangChain, Mastra, Vercel AI SDK, CrewAI, etc.) follows a consistent pattern. All adapters live in this same repo.
 
-### Step 1: Create the package
+### Step 1: Create the adapter package
+
+Create a new package (separate repo or directory) for the framework adapter:
 
 ```
-packages/
-  nanobot/
-    package.json
-    tsconfig.json
-    src/
-      index.ts          # Public API
-      adapter.ts         # Event translation + channel bridge
+openalerts-nanobot/
+  package.json
+  tsconfig.json
+  src/
+    index.ts          # Public API
+    adapter.ts         # Event translation + channel bridge
 ```
 
 **package.json:**
@@ -94,23 +95,14 @@ packages/
   "name": "@steadwing/openalerts-nanobot",
   "version": "0.1.0",
   "type": "module",
-  "main": "src/index.ts",
-  "exports": { ".": "./src/index.ts" },
+  "main": "./dist/index.js",
+  "exports": { ".": "./dist/index.js" },
   "dependencies": {
-    "@steadwing/openalerts-core": "0.1.0"
+    "@steadwing/openalerts": "0.2.0"
   },
   "peerDependencies": {
     "nanobot": "*"
   }
-}
-```
-
-**tsconfig.json:**
-```json
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "outDir": "dist", "rootDir": "src" },
-  "include": ["src/**/*.ts"]
 }
 ```
 
@@ -119,8 +111,8 @@ packages/
 The translator maps framework-specific events to `OpenAlertsEvent`:
 
 ```typescript
-// nanobot/src/adapter.ts
-import type { OpenAlertsEvent, OpenAlertsEventType } from "@steadwing/openalerts-core";
+// src/adapter.ts
+import type { OpenAlertsEvent, OpenAlertsEventType } from "@steadwing/openalerts";
 
 const EVENT_MAP: Record<string, OpenAlertsEventType> = {
   "nanobot.llm.complete": "llm.call",
@@ -152,8 +144,8 @@ Two options depending on the framework:
 
 **Option A: Plugin/hook system (like OpenClaw)**
 ```typescript
-// nanobot/src/index.ts
-import { OpenAlertsEngine } from "@steadwing/openalerts-core";
+// src/index.ts
+import { OpenAlertsEngine } from "@steadwing/openalerts";
 import { translateNanobotEvent } from "./adapter.js";
 
 export function createNanobotMonitor(nanobotApp: NanobotApp, opts: OpenAlertsInitOptions) {
@@ -186,32 +178,20 @@ export function withOpenAlerts(handler: LLMHandler, engine: OpenAlertsEngine): L
 }
 ```
 
-### Step 4: Register in workspace
+### Step 4: Publish and use
 
-Run `npm install` from the monorepo root. The `"workspaces": ["packages/*"]` glob auto-discovers new packages.
-
-Update `tsconfig.json` root include if using the global typecheck:
-```json
-"include": [
-  "packages/core/src/**/*.ts",
-  "packages/node/src/**/*.ts",
-  "packages/alert/index.ts",
-  "packages/alert/src/**/*.ts",
-  "packages/nanobot/src/**/*.ts"
-]
-```
+The adapter is a standalone package that depends on `@steadwing/openalerts`.
 
 ### What You Don't Need to Touch
 
-- **No changes to `@steadwing/openalerts-core`** — it's framework-agnostic
-- **No changes to `@steadwing/openalerts-node`** — adapters can use it if they want built-in channels
+- **No changes to `@steadwing/openalerts`** — the core engine is framework-agnostic
 - **No changes to other adapters** — each adapter is independent
 
 ---
 
 ## How to Add a New Alert Rule
 
-Rules live in `packages/core/src/rules.ts`.
+Rules live in `src/core/rules.ts`.
 
 ```typescript
 const myNewRule: AlertRuleDefinition = {
@@ -258,11 +238,11 @@ Rules automatically get:
 
 ## How to Add a New Alert Channel
 
-Channels live in `packages/node/src/channels/`.
+Implement the `AlertChannel` interface:
 
 ```typescript
-// packages/node/src/channels/pagerduty.ts
-import type { AlertChannel, AlertEvent } from "@steadwing/openalerts-core";
+// pagerduty-channel.ts
+import type { AlertChannel, AlertEvent } from "@steadwing/openalerts";
 
 export class PagerDutyAlertChannel implements AlertChannel {
   readonly name = "pagerduty";
@@ -288,7 +268,7 @@ export class PagerDutyAlertChannel implements AlertChannel {
 }
 ```
 
-Then re-export from `packages/node/src/index.ts`.
+Then pass the channel instance to `OpenAlertsEngine` via the `channels` option.
 
 ---
 

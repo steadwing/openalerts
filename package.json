@@ -1,22 +1,43 @@
 {
-	"name": "openalerts",
-	"private": true,
-	"version": "0.1.0",
-	"type": "module",
-	"description": "OpenAlerts — An alerting layer for agentic frameworks",
-	"license": "Apache-2.0",
-	"workspaces": [
-		"packages/*"
-	],
-	"scripts": {
-		"typecheck": "tsc --noEmit",
-		"build": "tsc -p packages/core && tsc -p packages/alert",
-		"clean": "node -e \"const fs=require('fs');['core','alert'].forEach(p=>{try{fs.rmSync('packages/'+p+'/dist',{recursive:true,force:true})}catch{}})\"",
-		"publish:core": "npm publish --workspace packages/core",
-		"publish:alert": "npm publish --workspace packages/alert",
-		"publish:all": "npm run publish:core && npm run publish:alert"
-	},
-	"devDependencies": {
-		"typescript": "^5.9.3"
-	}
+  "name": "@steadwing/openalerts",
+  "version": "0.2.0",
+  "type": "module",
+  "description": "OpenAlerts — An alerting layer for agentic frameworks",
+  "author": "Steadwing",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "openclaw.plugin.json"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "clean": "node -e \"const fs=require('fs');try{fs.rmSync('dist',{recursive:true,force:true})}catch{}\"",
+    "publish": "npm publish",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "openclaw": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "openclaw": {
+    "extensions": ["./dist/index.js"]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/steadwing/openalerts.git"
+  },
+  "homepage": "https://github.com/steadwing/openalerts#readme",
+  "bugs": "https://github.com/steadwing/openalerts/issues",
+  "keywords": ["openalerts", "openclaw", "monitoring", "alerting", "plugin"],
+  "engines": {
+    "node": ">=18"
+  }
 }

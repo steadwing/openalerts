@@ -5,7 +5,7 @@ import type {
 	OpenAlertsEngine,
 	OpenAlertsEvent,
 	AlertEvent,
-} from "@steadwing/openalerts-core";
+} from "../core/index.js";
 import { getDashboardHtml } from "./dashboard-html.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────

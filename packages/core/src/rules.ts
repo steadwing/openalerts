@@ -319,84 +319,6 @@ const gatewayDown: AlertRuleDefinition = {
 	},
 };
 
-// ─── Rule: circuit-breaker-trip ─────────────────────────────────────────────
-
-const circuitBreakerTrip: AlertRuleDefinition = {
-	id: "circuit-breaker-trip",
-	defaultCooldownMs: 15 * 60 * 1000,
-	defaultThreshold: 1,
-
-	evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
-		if (event.type !== "infra.error") return null;
-		if (!isRuleEnabled(ctx, "circuit-breaker-trip")) return null;
-
-		const meta = event.meta as Record<string, unknown> | undefined;
-		const circuitBreaker = meta?.circuitBreaker as
-			| Record<string, unknown>
-			| undefined;
-		if (!circuitBreaker || meta?.source !== "circuit-breaker") return null;
-
-		const category = circuitBreaker.category as string;
-		const name = circuitBreaker.name as string;
-		const newState = circuitBreaker.newState as string;
-		const tripCount = circuitBreaker.tripCount as number;
-		const totalFailures = circuitBreaker.totalFailures as number;
-
-		if (newState !== "OPEN") return null; // Only alert on circuit opening
-
-		const fingerprint = `circuit-breaker:${category}:${name}`;
-		return {
-			type: "alert",
-			id: makeAlertId("circuit-breaker-trip", fingerprint, ctx.now),
-			ruleId: "circuit-breaker-trip",
-			severity: "critical",
-			title: `Circuit breaker tripped: ${category}:${name}`,
-			detail: `Circuit breaker opened after ${totalFailures} failures (trip #${tripCount}). Requests will be blocked until recovery.`,
-			ts: ctx.now,
-			fingerprint,
-		};
-	},
-};
-
-// ─── Rule: task-timeout ──────────────────────────────────────────────────────
-
-const taskTimeout: AlertRuleDefinition = {
-	id: "task-timeout",
-	defaultCooldownMs: 10 * 60 * 1000,
-	defaultThreshold: 1,
-
-	evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
-		if (event.type !== "infra.error") return null;
-		if (!isRuleEnabled(ctx, "task-timeout")) return null;
-
-		const meta = event.meta as Record<string, unknown> | undefined;
-		const taskTimeout = meta?.taskTimeout as
-			| Record<string, unknown>
-			| undefined;
-		if (!taskTimeout || meta?.source !== "task-timeout") return null;
-
-		const taskType = taskTimeout.taskType as string;
-		const taskId = taskTimeout.taskId as string;
-		const durationMs = taskTimeout.durationMs as number;
-		const timeoutMs = taskTimeout.timeoutMs as number;
-
-		const durationSec = Math.round(durationMs / 1000);
-		const timeoutSec = Math.round(timeoutMs / 1000);
-
-		const fingerprint = `task-timeout:${taskType}`;
-		return {
-			type: "alert",
-			id: makeAlertId("task-timeout", fingerprint, ctx.now),
-			ruleId: "task-timeout",
-			severity: "critical",
-			title: `Task timeout: ${taskType}`,
-			detail: `Task ${taskId} exceeded timeout of ${timeoutSec}s (ran for ${durationSec}s). This may indicate a hung task blocking a lane.`,
-			ts: ctx.now,
-			fingerprint,
-		};
-	},
-};
-
 // ─── Export all rules ────────────────────────────────────────────────────────
 
 export const ALL_RULES: AlertRuleDefinition[] = [
@@ -407,6 +329,4 @@ export const ALL_RULES: AlertRuleDefinition[] = [
 	queueDepth,
 	highErrorRate,
 	gatewayDown,
-	circuitBreakerTrip,
-	taskTimeout,
 ];

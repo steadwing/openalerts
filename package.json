@@ -10,8 +10,8 @@
 	],
 	"scripts": {
 		"typecheck": "tsc --noEmit",
-		"build": "tsc -p packages/core && tsc -p packages/node && tsc -p packages/alert",
-		"clean": "node -e \"const fs=require('fs');['core','node','alert'].forEach(p=>{try{fs.rmSync('packages/'+p+'/dist',{recursive:true,force:true})}catch{}})\"",
+		"build": "tsc -p packages/core && tsc -p packages/alert",
+		"clean": "node -e \"const fs=require('fs');['core','alert'].forEach(p=>{try{fs.rmSync('packages/'+p+'/dist',{recursive:true,force:true})}catch{}})\"",
 		"publish:core": "npm publish --workspace packages/core",
 		"publish:alert": "npm publish --workspace packages/alert",
 		"publish:all": "npm run publish:core && npm run publish:alert"

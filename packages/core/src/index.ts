@@ -62,31 +62,6 @@ export {
 // Platform
 export { createPlatformSync, type PlatformSync } from "./platform.js";
 
-// Circuit Breaker
-export {
-	CircuitBreaker,
-	type CircuitState,
-	type CircuitBreakerConfig,
-	type CircuitBreakerStats,
-} from "./circuit-breaker.js";
-export {
-	CircuitBreakerManager,
-	type CircuitBreakerCategory,
-	type CircuitBreakerKey,
-} from "./circuit-breaker-manager.js";
-
-// Task Timeout
-export {
-	TaskTimeoutMonitor,
-	type TaskType,
-	type TaskTimeoutConfig,
-	type RunningTask,
-	type TaskTimeoutEvent,
-} from "./task-timeout.js";
-
-// Correlation Tracking
-export { CorrelationTracker, type CorrelationContext } from "./correlation.js";
-
 // Bounded Map
 export {
 	BoundedMap,

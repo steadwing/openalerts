@@ -39,5 +39,8 @@
   "keywords": ["openalerts", "openclaw", "monitoring", "alerting", "plugin"],
   "engines": {
     "node": ">=18"
+  },
+  "overrides": {
+    "tar": "^7.5.7"
   }
 }

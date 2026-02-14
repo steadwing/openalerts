@@ -4,11 +4,19 @@
   "type": "module",
   "description": "OpenAlerts monitoring for OpenClaw — texts you when your bot is sick.",
   "author": "Steadwing",
-  "license": "MIT",
-  "main": "index.ts",
-  "types": "index.ts",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "openclaw.plugin.json"],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@steadwing/openalerts-core": "0.1.0"
@@ -17,6 +25,17 @@
     "openclaw": "*"
   },
   "openclaw": {
-    "extensions": ["./index.ts"]
+    "extensions": ["./dist/index.js"]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/steadwing/openalerts.git",
+    "directory": "packages/alert"
+  },
+  "homepage": "https://github.com/steadwing/openalerts#readme",
+  "bugs": "https://github.com/steadwing/openalerts/issues",
+  "keywords": ["openalerts", "openclaw", "monitoring", "alerting", "plugin"],
+  "engines": {
+    "node": ">=18"
   }
 }

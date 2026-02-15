@@ -66,10 +66,14 @@ Otherwise, set it explicitly in `openclaw.json`:
 openclaw gateway stop && openclaw gateway run
 ```
 
-
 Send `/health` to your bot. You should get a live status report back — zero LLM tokens consumed.
 
 That's it. OpenAlerts is now watching your agent.
+
+## Demo
+
+https://github.com/user-attachments/assets/0b6ed26e-1eb0-47b2-ae4f-947516f024b4
+
 
 ## Dashboard
 

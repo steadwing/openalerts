@@ -21,10 +21,15 @@
     "publish": "npm publish",
     "prepublishOnly": "npm run build"
   },
+  "dependencies": {
+    "eventemitter3": "^5.0.1",
+    "ws": "^8.18.0"
+  },
   "peerDependencies": {
     "openclaw": "*"
   },
   "devDependencies": {
+    "@types/ws": "^8.5.13",
     "typescript": "^5.9.3"
   },
   "openclaw": {

@@ -89,7 +89,7 @@ http://127.0.0.1:18789/openalerts
 
 ## Alert Rules
 
-Eight rules run against every event in real-time. All thresholds and cooldowns are configurable.
+Ten rules run against every event in real-time. All thresholds and cooldowns are configurable.
 
 | Rule | Watches for | Severity | Threshold (default) |
 |---|---|---|---|
@@ -98,6 +98,8 @@ Eight rules run against every event in real-time. All thresholds and cooldowns a
 | `gateway-down` | No heartbeat received | CRITICAL | `30000` ms (30s) |
 | `session-stuck` | Session idle too long | WARN | `120000` ms (2 min) |
 | `high-error-rate` | Message failure rate over last 20 | ERROR | `50`% |
+| `cost-hourly-spike` | LLM spend over last 60 minutes | WARN | `$5.00` |
+| `cost-daily-budget` | LLM spend over last 24 hours | ERROR | `$20.00` |
 | `queue-depth` | Queued items piling up | WARN | `10` items |
 | `tool-errors` | Tool failures in 1 min window | WARN | `1` error |
 | `heartbeat-fail` | Consecutive heartbeat failures | ERROR | `3` failures |
@@ -119,7 +121,9 @@ To tune rules, add a `rules` object in your plugin config:
             "llm-errors": { "threshold": 5 },
             "infra-errors": { "cooldownMinutes": 30 },
             "high-error-rate": { "enabled": false },
-            "gateway-down": { "threshold": 60000 }
+            "gateway-down": { "threshold": 60000 },
+            "cost-hourly-spike": { "threshold": 8.5 },
+            "cost-daily-budget": { "threshold": 30 }
           }
         }
       }

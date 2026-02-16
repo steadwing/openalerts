@@ -2,6 +2,7 @@ import { AlertDispatcher } from "./alert-channel.js";
 import { OpenAlertsEventBus } from "./event-bus.js";
 import { createEvaluatorState, processEvent, processWatchdogTick, warmFromHistory } from "./evaluator.js";
 import { createPlatformSync, type PlatformSync } from "./platform.js";
+import { ALL_RULES } from "./rules.js";
 import { appendEvent, pruneLog, readAllEvents, readRecentEvents } from "./store.js";
 import {
   DEFAULTS,
@@ -108,7 +109,7 @@ export class OpenAlertsEngine {
     const channelNames = this.dispatcher.hasChannels
       ? `${this.dispatcher.channelCount} channel(s)`
       : "log-only (no alert channels)";
-    this.logger.info(`${this.logPrefix}: started, ${channelNames}, 8 rules active`);
+    this.logger.info(`${this.logPrefix}: started, ${channelNames}, ${ALL_RULES.length} rules active`);
   }
 
   /** Ingest a universal event. Can be called directly or via the event bus. */

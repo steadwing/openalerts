@@ -41,7 +41,18 @@
   },
   "homepage": "https://github.com/steadwing/openalerts#readme",
   "bugs": "https://github.com/steadwing/openalerts/issues",
-  "keywords": ["openalerts", "openclaw", "monitoring", "alerting", "plugin"],
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "alerting",
+    "monitoring",
+    "observability",
+    "llm-monitoring",
+    "agent-monitoring",
+    "ai-agents",
+    "real-time-alerts",
+    "error-tracking"
+  ],
   "engines": {
     "node": ">=18"
   },

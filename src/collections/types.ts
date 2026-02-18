@@ -10,6 +10,9 @@ export interface MonitorSession {
 	status: "idle" | "active" | "thinking";
 	spawnedBy?: string;
 	messageCount?: number;
+	totalCostUsd?: number;
+	totalInputTokens?: number;
+	totalOutputTokens?: number;
 }
 
 // ─── Action Types ────────────────────────────────────────────────────────────
@@ -42,6 +45,9 @@ export interface MonitorAction {
 	inputTokens?: number;
 	outputTokens?: number;
 	stopReason?: string;
+	costUsd?: number;
+	model?: string;
+	provider?: string;
 }
 
 // ─── Exec Types ──────────────────────────────────────────────────────────────
@@ -172,4 +178,54 @@ export interface CollectionStats {
 	actions: number;
 	execs: number;
 	runSessionMapSize: number;
+	totalCostUsd?: number;
+}
+
+// ─── Diagnostic Usage Event (from OpenClaw) ───────────────────────────────────
+
+export interface DiagnosticUsageEvent {
+	type: "model.usage";
+	ts: number;
+	seq: number;
+	sessionKey?: string;
+	sessionId?: string;
+	channel?: string;
+	provider?: string;
+	model?: string;
+	usage: {
+		input?: number;
+		output?: number;
+		cacheRead?: number;
+		cacheWrite?: number;
+		promptTokens?: number;
+		total?: number;
+	};
+	context?: {
+		limit?: number;
+		used?: number;
+	};
+	costUsd?: number;
+	durationMs?: number;
+}
+
+// ─── Cost Usage Totals (from usage.cost RPC) ───────────────────────────────────
+
+export interface CostUsageTotals {
+	input: number;
+	output: number;
+	cacheRead: number;
+	cacheWrite: number;
+	totalTokens: number;
+	totalCost: number;
+	inputCost: number;
+	outputCost: number;
+	cacheReadCost: number;
+	cacheWriteCost: number;
+	missingCostEntries: number;
+}
+
+export interface CostUsageSummary {
+	totals: CostUsageTotals;
+	byModel?: Record<string, CostUsageTotals>;
+	bySession?: Record<string, CostUsageTotals>;
 }

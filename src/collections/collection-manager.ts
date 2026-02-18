@@ -8,6 +8,7 @@ import {
 	type MonitorExecOutputChunk,
 	type MonitorExecProcessStatus,
 	type CollectionStats,
+	type CostUsageSummary,
 } from "./types.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -210,10 +211,19 @@ export class CollectionManager {
 
 		if (existing) {
 			const preservedSpawnedBy = existing.spawnedBy;
+			const accumulatedCost =
+				(existing.totalCostUsd ?? 0) + (session.totalCostUsd ?? 0);
+			const accumulatedInput =
+				(existing.totalInputTokens ?? 0) + (session.totalInputTokens ?? 0);
+			const accumulatedOutput =
+				(existing.totalOutputTokens ?? 0) + (session.totalOutputTokens ?? 0);
 			const updated: MonitorSession = {
 				...existing,
 				...session,
 				spawnedBy: preservedSpawnedBy,
+				totalCostUsd: session.totalCostUsd !== undefined ? accumulatedCost : existing.totalCostUsd,
+				totalInputTokens: session.totalInputTokens !== undefined ? accumulatedInput : existing.totalInputTokens,
+				totalOutputTokens: session.totalOutputTokens !== undefined ? accumulatedOutput : existing.totalOutputTokens,
 			} as MonitorSession;
 			this.sessions.set(session.key, updated);
 			this.onSessionChange?.(updated);
@@ -236,6 +246,9 @@ export class CollectionManager {
 				status: session.status ?? "idle",
 				spawnedBy,
 				messageCount: session.messageCount,
+				totalCostUsd: session.totalCostUsd,
+				totalInputTokens: session.totalInputTokens,
+				totalOutputTokens: session.totalOutputTokens,
 			};
 			this.sessions.set(session.key, newSession);
 			this.onSessionChange?.(newSession);
@@ -313,6 +326,9 @@ export class CollectionManager {
 					outputTokens: action.outputTokens ?? existing.outputTokens,
 					stopReason: action.stopReason ?? existing.stopReason,
 					endedAt: action.endedAt ?? existing.endedAt,
+					costUsd: action.costUsd ?? existing.costUsd,
+					model: action.model ?? existing.model,
+					provider: action.provider ?? existing.provider,
 					duration:
 						existing.startedAt && action.endedAt
 							? action.endedAt - existing.startedAt
@@ -483,12 +499,81 @@ export class CollectionManager {
 	}
 
 	getStats(): CollectionStats {
+		let totalCostUsd = 0;
+		for (const session of this.sessions.values()) {
+			if (session.totalCostUsd) {
+				totalCostUsd += session.totalCostUsd;
+			}
+		}
 		return {
 			sessions: this.sessions.size,
 			actions: this.actions.size,
 			execs: this.execs.size,
 			runSessionMapSize: this.runSessionMap.size,
+			totalCostUsd,
 		};
+	}
+
+	// ─── Cost Tracking ───────────────────────────────────────────────────────────
+
+	updateSessionCost(
+		sessionKey: string,
+		costUsd: number,
+		inputTokens?: number,
+		outputTokens?: number,
+	): void {
+		const existing = this.sessions.get(sessionKey);
+		if (existing) {
+			const updated: MonitorSession = {
+				...existing,
+				totalCostUsd: (existing.totalCostUsd ?? 0) + costUsd,
+				totalInputTokens:
+					(existing.totalInputTokens ?? 0) + (inputTokens ?? 0),
+				totalOutputTokens:
+					(existing.totalOutputTokens ?? 0) + (outputTokens ?? 0),
+			};
+			this.sessions.set(sessionKey, updated);
+			this.onSessionChange?.(updated);
+		} else {
+			const parsed = parseSessionKey(sessionKey);
+			const spawnedBy = isSubagentSession(sessionKey)
+				? this.inferSpawnedBy(sessionKey, Date.now())
+				: undefined;
+			const newSession: MonitorSession = {
+				key: sessionKey,
+				agentId: parsed.agentId,
+				platform: parsed.platform,
+				recipient: parsed.recipient,
+				isGroup: parsed.isGroup,
+				lastActivityAt: Date.now(),
+				status: "active",
+				spawnedBy,
+				totalCostUsd: costUsd,
+				totalInputTokens: inputTokens ?? 0,
+				totalOutputTokens: outputTokens ?? 0,
+			};
+			this.sessions.set(sessionKey, newSession);
+			this.onSessionChange?.(newSession);
+		}
+	}
+
+	syncAggregatedCosts(summary: CostUsageSummary): void {
+		if (summary.bySession) {
+			for (const [sessionKey, totals] of Object.entries(summary.bySession)) {
+				if (totals.totalCost > 0) {
+					const existing = this.sessions.get(sessionKey);
+					if (existing) {
+						const updated: MonitorSession = {
+							...existing,
+							totalCostUsd: totals.totalCost,
+							totalInputTokens: totals.input,
+							totalOutputTokens: totals.output,
+						};
+						this.sessions.set(sessionKey, updated);
+					}
+				}
+			}
+		}
 	}
 
 	// ─── Lifecycle ─────────────────────────────────────────────────────────────

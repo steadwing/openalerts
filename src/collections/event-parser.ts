@@ -7,6 +7,7 @@ import type {
 	MonitorSession,
 	MonitorAction,
 	MonitorExecEvent,
+	DiagnosticUsageEvent,
 } from "./types.js";
 
 // ─── Session Info Conversion ─────────────────────────────────────────────────
@@ -353,4 +354,59 @@ export function parseGatewayEvent(
 	}
 
 	return null;
+}
+
+// ─── Diagnostic Usage Event Parser ───────────────────────────────────────────
+
+export interface ParsedDiagnosticUsage {
+	session?: Partial<MonitorSession>;
+	action?: MonitorAction;
+}
+
+export function diagnosticUsageToSessionUpdate(
+	event: DiagnosticUsageEvent,
+): ParsedDiagnosticUsage {
+	const sessionKey = event.sessionKey || event.sessionId;
+	const now = Date.now();
+
+	const result: ParsedDiagnosticUsage = {};
+
+	if (sessionKey) {
+		const inputTokens =
+			event.usage?.input ?? event.usage?.promptTokens ?? 0;
+		const outputTokens = event.usage?.output ?? 0;
+
+		result.session = {
+			key: sessionKey,
+			lastActivityAt: now,
+			status: "active",
+			totalInputTokens: inputTokens,
+			totalOutputTokens: outputTokens,
+		};
+
+		if (typeof event.costUsd === "number") {
+			result.session.totalCostUsd = event.costUsd;
+		}
+	}
+
+	if (typeof event.costUsd === "number" || event.usage) {
+		const actionId = `usage-${event.ts}-${event.seq}`;
+		result.action = {
+			id: actionId,
+			runId: actionId,
+			sessionKey: sessionKey || "unknown",
+			seq: event.seq,
+			type: "complete",
+			eventType: "system",
+			timestamp: event.ts,
+			inputTokens: event.usage?.input ?? event.usage?.promptTokens,
+			outputTokens: event.usage?.output,
+			costUsd: event.costUsd,
+			model: event.model,
+			provider: event.provider,
+			duration: event.durationMs,
+		};
+	}
+
+	return result;
 }

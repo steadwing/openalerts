@@ -15,12 +15,19 @@ export type {
 	ExecOutputEvent,
 	ExecCompletedEvent,
 	CollectionStats,
+	DiagnosticUsageEvent,
+	CostUsageTotals,
+	CostUsageSummary,
 } from "./types.js";
 
 export { parseSessionKey } from "./types.js";
 
 // Event Parser
-export type { ParsedGatewayEvent, SessionInfo } from "./event-parser.js";
+export type {
+	ParsedGatewayEvent,
+	SessionInfo,
+	ParsedDiagnosticUsage,
+} from "./event-parser.js";
 export {
 	sessionInfoToMonitor,
 	chatEventToAction,
@@ -29,6 +36,7 @@ export {
 	execOutputToEvent,
 	execCompletedToEvent,
 	parseGatewayEvent,
+	diagnosticUsageToSessionUpdate,
 } from "./event-parser.js";
 
 // Collection Manager

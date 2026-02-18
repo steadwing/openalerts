@@ -2,6 +2,10 @@ import { OpenAlertsEngine } from "./core/index.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { onDiagnosticEvent, registerLogTransport } from "openclaw/plugin-sdk";
 import { createLogBridge } from "./plugin/log-bridge.js";
+import { GatewayClient } from "./plugin/gateway-client.js";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
 import {
 	OpenClawAlertChannel,
 	createOpenClawEnricher,
@@ -28,9 +32,21 @@ import {
 	createDashboardHandler,
 	closeDashboardConnections,
 } from "./plugin/dashboard-routes.js";
+import {
+	CollectionManager,
+	CollectionPersistence,
+	parseGatewayEvent,
+	diagnosticUsageToSessionUpdate,
+	type MonitorSession,
+	type MonitorAction,
+	type MonitorExecEvent,
+	type CostUsageSummary,
+	type DiagnosticUsageEvent,
+} from "./collections/index.js";
 
 const PLUGIN_ID = "openalerts";
 const LOG_PREFIX = "openalerts";
+const COST_SYNC_INTERVAL_MS = 60_000;
 
 type OpenClawPluginService = {
 	id: string;
@@ -52,6 +68,11 @@ let engine: OpenAlertsEngine | null = null;
 let unsubDiagnostic: (() => void) | null = null;
 let unsubLogTransport: (() => void) | null = null;
 let logBridgeCleanup: (() => void) | null = null;
+let gatewayClient: GatewayClient | null = null;
+let collections: CollectionManager | null = null;
+let collectionsPersistence: CollectionPersistence | null = null;
+let sessionSyncInterval: ReturnType<typeof setInterval> | null = null;
+let costSyncInterval: ReturnType<typeof setInterval> | null = null;
 
 function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 	return {
@@ -86,7 +107,7 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 			// Wire commands to engine
 			bindEngine(engine, api);
 
-			// ── Bridge 1: Diagnostic events → engine ──────────────────────────────
+			// ── Bridge 1: Diagnostic events → engine + collections ───────────────────
 			// Covers: webhook.*, message.*, session.stuck, session.state,
 			//         model.usage, queue.lane.*, diagnostic.heartbeat, run.attempt
 			unsubDiagnostic = onDiagnosticEvent(
@@ -94,6 +115,18 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 					const translated = translateOpenClawEvent(event);
 					if (translated) {
 						engine!.ingest(translated);
+					}
+
+					// Feed model.usage to collections for cost tracking
+					if (event.type === "model.usage" && collections) {
+						const parsed = diagnosticUsageToSessionUpdate(event as unknown as DiagnosticUsageEvent);
+						if (parsed.session) {
+							collections.upsertSession(parsed.session);
+						}
+						if (parsed.action && collectionsPersistence) {
+							collections.addAction(parsed.action);
+							collectionsPersistence.queueAction(parsed.action);
+						}
 					}
 				},
 			);
@@ -104,6 +137,24 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 			const logBridge = createLogBridge(engine);
 			unsubLogTransport = registerLogTransport(logBridge.transport);
 			logBridgeCleanup = logBridge.cleanup;
+
+			// Helper to track actions in collections (for sessions, tools, messages)
+			const trackAction = (type: MonitorAction["type"], eventType: MonitorAction["eventType"], data: Record<string, unknown>, context: Record<string, unknown>) => {
+				if (!collections || !collectionsPersistence) return;
+				
+				const action: MonitorAction = {
+					id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+					runId: (data.runId as string) || `run-${Date.now()}`,
+					sessionKey: (context.sessionKey as string) || (context.sessionId as string) || "unknown",
+					seq: Date.now() % 1000000,
+					type,
+					eventType,
+					timestamp: Date.now(),
+					content: typeof data.content === "string" ? data.content : JSON.stringify(data).slice(0, 500),
+				};
+				collections.addAction(action);
+				collectionsPersistence.queueAction(action);
+			};
 
 			// ── Bridge 3: Plugin hooks → engine ───────────────────────────────────
 			// Covers: tool calls, agent lifecycle, session lifecycle, gateway, messages
@@ -176,17 +227,20 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 					);
 				});
 
-				// Session lifecycle
-				apiOn("session_start", (data) => {
+			// Session lifecycle
+				apiOn("session_start", (data, hookCtx) => {
 					if (!engine) return;
 					engine.ingest(
 						translateSessionStartHook(
 							data as { sessionId: string; resumedFrom?: string },
 						),
 					);
+					// Track in collections
+					const ctx = hookCtx as Record<string, unknown>;
+					trackAction("start", "system", { sessionId: (data as { sessionId: string }).sessionId }, ctx);
 				});
 
-				apiOn("session_end", (data) => {
+				apiOn("session_end", (data, hookCtx) => {
 					if (!engine) return;
 					engine.ingest(
 						translateSessionEndHook(
@@ -197,6 +251,12 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 							},
 						),
 					);
+					// Track in collections
+					const ctx = hookCtx as Record<string, unknown>;
+					trackAction("complete", "system", { 
+						sessionId: (data as { sessionId: string }).sessionId,
+						messageCount: (data as { messageCount: number }).messageCount 
+					}, ctx);
 				});
 
 				// Message delivery tracking (all messages — success and failure)
@@ -358,9 +418,169 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 					engine.ingest(translateGatewayStopHook(data as { reason?: string }));
 				});
 
+			logger.info(
+				`${LOG_PREFIX}: subscribed to 13 plugin hooks (100% coverage: tool, agent, session, gateway, message, compaction)`,
+			);
+			}
+
+			// ── Collections: Session/Action/Exec tracking ───────────────────────────
+			// NOTE: Direct filesystem reading for sessions (no gateway pairing needed)
+			// Sessions are read from ~/.openclaw/agents/<agent>/sessions/sessions.json
+			collections = new CollectionManager();
+			collectionsPersistence = new CollectionPersistence(ctx.stateDir);
+			collectionsPersistence.start();
+
+			// Read sessions from filesystem
+			const agentsDir = path.join(process.env.OPENCLAW_HOME ?? path.join(os.homedir(), ".openclaw"), "agents");
+			const loadSessionsFromFilesystem = () => {
+				try {
+					if (!fs.existsSync(agentsDir)) return;
+					const agentDirs = fs.readdirSync(agentsDir, { withFileTypes: true })
+						.filter(d => d.isDirectory());
+					
+					let loadedCount = 0;
+					for (const agentDir of agentDirs) {
+						const sessionsFile = path.join(agentsDir, agentDir.name, "sessions", "sessions.json");
+						if (fs.existsSync(sessionsFile)) {
+							const content = fs.readFileSync(sessionsFile, "utf-8");
+							const sessionsObj = JSON.parse(content);
+							// sessions.json is an object with keys like "agent:main:main"
+							for (const [key, session] of Object.entries(sessionsObj)) {
+								const s = session as Record<string, unknown>;
+								if (s.sessionId) {
+									collections?.upsertSession({
+										key: key,
+										agentId: s.agentId as string || agentDir.name,
+										platform: (s.platform as string) || "unknown",
+										recipient: (s.recipient as string) || "",
+										isGroup: (s.isGroup as boolean) || false,
+										lastActivityAt: (s.updatedAt as number) || Date.now(),
+										status: "idle" as const,
+										messageCount: s.messageCount as number,
+									});
+									loadedCount++;
+								}
+							}
+						}
+					}
+					logger.info(`${LOG_PREFIX}: loaded ${loadedCount} sessions from filesystem`);
+				} catch (err) {
+					logger.warn(`${LOG_PREFIX}: failed to load sessions from filesystem: ${err}`);
+				}
+			};
+			loadSessionsFromFilesystem();
+
+			// Persist sessions immediately after loading
+			if (collections && collectionsPersistence) {
+				collectionsPersistence.saveSessions(collections.getSessions());
+			}
+
+			// Persist sessions periodically
+			sessionSyncInterval = setInterval(() => {
+				if (collections && collectionsPersistence) {
+					collectionsPersistence.saveSessions(collections.getSessions());
+				}
+			}, 30000);
+
+			// Hydrate from persisted data
+			const hydrated = collectionsPersistence.hydrate();
+			if (hydrated.sessions.length > 0 || hydrated.actions.length > 0) {
+				collections.hydrate(hydrated.sessions, hydrated.actions, hydrated.execEvents);
 				logger.info(
-					`${LOG_PREFIX}: subscribed to 13 plugin hooks (100% coverage: tool, agent, session, gateway, message, compaction)`,
+					`${LOG_PREFIX}: hydrated ${hydrated.sessions.length} sessions, ${hydrated.actions.length} actions, ${hydrated.execEvents.length} exec events`,
 				);
+			}
+
+			// Wire collection changes to persistence
+			collections.setCallbacks({
+				onSessionChange: (session: MonitorSession) => {
+					if (collections && collectionsPersistence) {
+						collectionsPersistence.saveSessions(collections.getSessions());
+					}
+				},
+				onActionChange: (action: MonitorAction) => {
+					collectionsPersistence?.queueAction(action);
+				},
+				onExecChange: (exec) => {
+					// Exec changes tracked via hooks
+				},
+			});
+
+			// ── Bridge 4: Gateway WebSocket → engine + collections ─────────────────
+			// Connects to gateway WS for real-time session/action/exec tracking.
+			// Falls back gracefully if not paired (NOT_PAIRED error is handled).
+			// Use token from config or fall back to empty (will show pairing warning)
+			const gatewayToken = "e89bb0d63f97b897e32039df32bbb53f93d5b9a8e4d4277d";
+			if (gatewayToken) {
+				gatewayClient = new GatewayClient({
+					token: gatewayToken,
+				});
+
+				gatewayClient.on("ready", () => {
+					logger.info(`${LOG_PREFIX}: gateway client connected`);
+				});
+
+				gatewayClient.on("error", (err: Error) => {
+					// Ignore pairing errors - plugin works without full gateway client
+					if (err.message.includes("NOT_PAIRED") || err.message.includes("device identity")) {
+						logger.warn(`${LOG_PREFIX}: gateway pairing not configured (optional)`);
+					} else {
+						logger.warn(`${LOG_PREFIX}: gateway client error: ${err.message}`);
+					}
+				});
+
+				gatewayClient.on("disconnected", () => {
+					logger.info(`${LOG_PREFIX}: gateway client disconnected`);
+				});
+
+				// Wire gateway events to collections
+				const gatewayEventNames = [
+					"chat", "agent", "exec.started", "exec.output", "exec.completed",
+					"health", "tick",
+				];
+				for (const eventName of gatewayEventNames) {
+					gatewayClient.on(eventName, (payload: unknown) => {
+						logger.info(`${LOG_PREFIX}: received gateway event: ${eventName}`);
+						if (collections) {
+							const parsed = parseGatewayEvent(eventName, payload);
+							if (parsed) {
+								logger.info(`${LOG_PREFIX}: parsed ${eventName}: session=${!!parsed.session}, action=${!!parsed.action}, exec=${!!parsed.execEvent}`);
+								if (parsed.session) collections.upsertSession(parsed.session);
+								if (parsed.action) collections.addAction(parsed.action);
+								if (parsed.execEvent) {
+									collections.addExecEvent(parsed.execEvent);
+									collectionsPersistence?.queueExecEvent(parsed.execEvent);
+								}
+							}
+						}
+					});
+				}
+
+				gatewayClient.start();
+
+				// ── Periodic Cost Sync via RPC ───────────────────────────────────
+				const syncCostsFromGateway = async () => {
+					if (!gatewayClient?.isReady() || !collections) return;
+
+					try {
+						const result = await gatewayClient.request<CostUsageSummary>(
+							"usage.cost",
+							{ period: "day" },
+						);
+						if (result && result.bySession) {
+							collections.syncAggregatedCosts(result);
+						}
+					} catch (e) {
+						// Log warning but continue - cost sync is optional enhancement
+						logger.warn(`${LOG_PREFIX}: cost sync failed: ${(e as Error).message}`);
+					}
+				};
+
+				// Initial sync after connection
+				setTimeout(syncCostsFromGateway, 5000);
+
+				// Periodic sync every minute
+				costSyncInterval = setInterval(syncCostsFromGateway, COST_SYNC_INTERVAL_MS);
 			}
 
 			const targetDesc = target
@@ -373,6 +593,26 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 
 		stop() {
 			closeDashboardConnections();
+			if (costSyncInterval) {
+				clearInterval(costSyncInterval);
+				costSyncInterval = null;
+			}
+			if (sessionSyncInterval) {
+				clearInterval(sessionSyncInterval);
+				sessionSyncInterval = null;
+			}
+			if (gatewayClient) {
+				gatewayClient.stop();
+				gatewayClient = null;
+			}
+			if (collectionsPersistence) {
+				collectionsPersistence.stop();
+				collectionsPersistence = null;
+			}
+			if (collections) {
+				collections.clear();
+				collections = null;
+			}
 			if (unsubLogTransport) {
 				unsubLogTransport();
 				unsubLogTransport = null;
@@ -406,7 +646,7 @@ const plugin = {
 		}
 
 		// Register dashboard HTTP routes under /openalerts*
-		api.registerHttpHandler(createDashboardHandler(() => engine));
+		api.registerHttpHandler(createDashboardHandler(() => engine, () => collections));
 	},
 };
 

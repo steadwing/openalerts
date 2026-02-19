@@ -37,6 +37,50 @@ function countInWindow(
 	return window.filter((e) => e.ts >= cutoff).length;
 }
 
+function sumInWindow(
+	ctx: RuleContext,
+	name: string,
+	windowMs: number,
+): number {
+	const window = ctx.state.windows.get(name);
+	if (!window) return 0;
+	const cutoff = ctx.now - windowMs;
+	let total = 0;
+	for (const entry of window) {
+		if (entry.ts >= cutoff) {
+			total += entry.value ?? 0;
+		}
+	}
+	return total;
+}
+
+function pushSummedBucket(
+	ctx: RuleContext,
+	name: string,
+	value: number,
+	bucketMs: number,
+	maxEntries: number,
+): void {
+	if (!Number.isFinite(value) || value <= 0) return;
+	const bucketTs = Math.floor(ctx.now / bucketMs) * bucketMs;
+	let window = ctx.state.windows.get(name);
+	if (!window) {
+		window = [];
+		ctx.state.windows.set(name, window);
+	}
+
+	const last = window[window.length - 1];
+	if (last && last.ts === bucketTs) {
+		last.value = (last.value ?? 0) + value;
+	} else {
+		window.push({ ts: bucketTs, value });
+	}
+
+	if (window.length > maxEntries) {
+		window.splice(0, window.length - maxEntries);
+	}
+}
+
 function getRuleThreshold(
 	ctx: RuleContext,
 	ruleId: string,
@@ -280,6 +324,90 @@ const highErrorRate: AlertRuleDefinition = {
 	},
 };
 
+// ─── Rule: cost-hourly-spike ────────────────────────────────────────────────
+
+const costHourlySpike: AlertRuleDefinition = {
+	id: "cost-hourly-spike",
+	defaultCooldownMs: 30 * 60 * 1000,
+	defaultThreshold: 5.0, // USD
+
+	evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
+		if (event.type !== "llm.token_usage") return null;
+		if (!isRuleEnabled(ctx, "cost-hourly-spike")) return null;
+		if (typeof event.costUsd !== "number" || !Number.isFinite(event.costUsd))
+			return null;
+
+		// Aggregate per-minute to keep 60m sums accurate under high event throughput.
+		pushSummedBucket(
+			ctx,
+			"cost-hourly-spike-usd",
+			event.costUsd,
+			60_000, 
+			120, // 2hrs
+		);
+
+		const hourlyUsd = sumInWindow(ctx, "cost-hourly-spike-usd", 60 * 60 * 1000);
+		const threshold = getRuleThreshold(ctx, "cost-hourly-spike", 5.0);
+		if (hourlyUsd <= threshold) return null; // must exceed threshold
+
+		const fingerprint = "cost-hourly-spike";
+		return {
+			type: "alert",
+			id: makeAlertId("cost-hourly-spike", fingerprint, ctx.now),
+			ruleId: "cost-hourly-spike",
+			severity: "warn",
+			title: "Hourly LLM spend spike",
+			detail: `LLM spend reached $${hourlyUsd.toFixed(2)} in the last 60 minutes (threshold: $${threshold.toFixed(2)}).`,
+			ts: ctx.now,
+			fingerprint,
+		};
+	},
+};
+
+// ─── Rule: cost-daily-budget ────────────────────────────────────────────────
+
+const costDailyBudget: AlertRuleDefinition = {
+	id: "cost-daily-budget",
+	defaultCooldownMs: 6 * 60 * 60 * 1000,
+	defaultThreshold: 20.0, // USD
+
+	evaluate(event: OpenAlertsEvent, ctx): AlertEvent | null {
+		if (event.type !== "llm.token_usage") return null;
+		if (!isRuleEnabled(ctx, "cost-daily-budget")) return null;
+		if (typeof event.costUsd !== "number" || !Number.isFinite(event.costUsd))
+			return null;
+
+		// Aggregate per-minute and retain >24h buckets for boundary-safe sums.
+		pushSummedBucket(
+			ctx,
+			"cost-daily-budget-usd",
+			event.costUsd,
+			60_000,
+			1_500, //25hrs
+		);
+
+		const dailyUsd = sumInWindow(
+			ctx,
+			"cost-daily-budget-usd",
+			24 * 60 * 60 * 1000,
+		);
+		const threshold = getRuleThreshold(ctx, "cost-daily-budget", 20.0);
+		if (dailyUsd <= threshold) return null; // must exceed threshold
+
+		const fingerprint = "cost-daily-budget";
+		return {
+			type: "alert",
+			id: makeAlertId("cost-daily-budget", fingerprint, ctx.now),
+			ruleId: "cost-daily-budget",
+			severity: "error",
+			title: "Daily LLM budget exceeded",
+			detail: `LLM spend reached $${dailyUsd.toFixed(2)} in the last 24 hours (threshold: $${threshold.toFixed(2)}).`,
+			ts: ctx.now,
+			fingerprint,
+		};
+	},
+};
+
 // ─── Rule: tool-errors ───────────────────────────────────────────────────
 
 const toolErrors: AlertRuleDefinition = {
@@ -367,6 +495,8 @@ export const ALL_RULES: AlertRuleDefinition[] = [
 	heartbeatFail,
 	queueDepth,
 	highErrorRate,
+	costHourlySpike,
+	costDailyBudget,
 	toolErrors,
 	gatewayDown,
 ];

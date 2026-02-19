@@ -10,6 +10,7 @@ export type OpenAlertsEventType =
   | "agent.start" | "agent.end" | "agent.error" | "agent.stuck"
   | "session.start" | "session.end" | "session.stuck"
   | "infra.error" | "infra.heartbeat" | "infra.queue_depth"
+  | "exec.start" | "exec.output" | "exec.end"
   | "custom" | "watchdog.tick";
 
 export type OpenAlertsEvent = {

@@ -159,7 +159,7 @@ export class GatewayClient extends EventEmitter {
 		try {
 			const frame: GatewayFrame = JSON.parse(raw);
 
-			// Handle challenge-response auth (like crabwalk)
+			// Handle challenge-response auth
 			if (frame.type === "event" && frame.event === "connect.challenge") {
 				this.sendConnectHandshake();
 				return;

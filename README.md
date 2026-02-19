@@ -7,6 +7,7 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@steadwing/openalerts"><img src="https://img.shields.io/npm/v/@steadwing/openalerts?style=flat&color=blue" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/@steadwing/openalerts"><img src="https://img.shields.io/npm/dt/@steadwing/openalerts?style=flat&color=blue" alt="npm"></a>
   <a href="https://github.com/steadwing/openalerts/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="License"></a>
   <a href="https://github.com/steadwing/openalerts/stargazers"><img src="https://img.shields.io/github/stars/steadwing/openalerts?style=flat" alt="GitHub stars"></a>
   <a href="https://discord.gg/4rUP86tSXn"><img src="https://img.shields.io/badge/discord-join-5865F2?style=flat" alt="Discord"></a>
@@ -83,9 +84,12 @@ A real-time web dashboard is embedded in the gateway at:
 http://127.0.0.1:18789/openalerts
 ```
 
-- **Activity** — Live event timeline with session flows, tool calls, LLM usage
+- **Activity** — Step-by-step execution timeline with tool calls, LLM usage, costs
+- **Sessions** — Active sessions with cost/token aggregation
+- **Execs** — Shell command executions with output capture
 - **System Logs** — Filtered, structured logs with search
 - **Health** — Rule status, alert history, system stats
+- **Debug** — State snapshot for troubleshooting
 
 ## Alert Rules
 

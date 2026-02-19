@@ -23,7 +23,7 @@ EventBus.emit(event) → all listeners notified
   v
 handleEvent():
   1. Persist as DiagnosticSnapshot to JSONL
-  2. Run through Evaluator (all 7 rules)
+  2. Run through Evaluator (all 10 rules)
   3. Push to Platform sync batch
   |
   v
@@ -60,7 +60,7 @@ OpenClaw also provides:
 
 Things OpenClaw does NOT have natively that OpenAlerts provides:
 
-- **Rule-based alerting** — pattern detection across events (error spikes, stuck sessions, gateway down)
+- **Rule-based alerting** — pattern detection across events (error spikes, stuck sessions, gateway down, spend spikes, daily budget overruns)
 - **Sliding window aggregation** — tracks error counts over time windows (5min, 20 messages, etc.)
 - **Cooldown deduplication** — prevents alert spam (configurable per-rule + global)
 - **Hourly alert cap** — max 5 alerts per hour hard cap

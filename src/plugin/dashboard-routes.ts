@@ -50,6 +50,8 @@ const RULE_IDS = [
 	"heartbeat-fail",
 	"queue-depth",
 	"high-error-rate",
+	"cost-hourly-spike",
+	"cost-daily-budget",
 	"tool-errors",
 	"gateway-down",
 ];

@@ -93,7 +93,7 @@ http://127.0.0.1:18789/openalerts
 
 ## Alert Rules
 
-Eight rules run against every event in real-time. All thresholds and cooldowns are configurable.
+Ten rules run against every event in real-time. All thresholds and cooldowns are configurable.
 
 | Rule              | Watches for                           | Severity | Threshold (default) |
 | ----------------- | ------------------------------------- | -------- | ------------------- |

@@ -1,4 +1,4 @@
-import { OpenAlertsEngine } from "./core/index.js";
+import { ALL_RULES, OpenAlertsEngine } from "./core/index.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { onDiagnosticEvent, registerLogTransport } from "openclaw/plugin-sdk";
 import { createLogBridge } from "./plugin/log-bridge.js";
@@ -587,7 +587,7 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 				? `alerting to ${target.channel}:${target.to}`
 				: "log-only (no alert channel detected)";
 			logger.info(
-				`${LOG_PREFIX}: started, ${targetDesc}, log-bridge active, 8 rules active`,
+				`${LOG_PREFIX}: started, ${targetDesc}, log-bridge active, ${ALL_RULES.length} rules active`,
 			);
 		},
 

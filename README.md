@@ -29,6 +29,7 @@ OpenAlerts watches your agent in real-time and alerts you the moment something g
 ## Quickstart
 
 > Currently supports OpenClaw. More framework adapters coming soon.
+> This project is under revamp for the next few hours
 
 ### 1. Install
 
@@ -44,17 +45,17 @@ Otherwise, set it explicitly in `openclaw.json`:
 
 ```jsonc
 {
-  "plugins": {
-    "entries": {
-      "openalerts": {
-        "enabled": true,
-        "config": {
-          "alertChannel": "telegram",  // telegram | discord | slack | whatsapp | signal
-          "alertTo": "YOUR_CHAT_ID"
-        }
-      }
-    }
-  }
+	"plugins": {
+		"entries": {
+			"openalerts": {
+				"enabled": true,
+				"config": {
+					"alertChannel": "telegram", // telegram | discord | slack | whatsapp | signal
+					"alertTo": "YOUR_CHAT_ID",
+				},
+			},
+		},
+	},
 }
 ```
 
@@ -74,7 +75,6 @@ That's it. OpenAlerts is now watching your agent.
 
 https://github.com/user-attachments/assets/0b6ed26e-1eb0-47b2-ae4f-947516f024b4
 
-
 ## Dashboard
 
 A real-time web dashboard is embedded in the gateway at:
@@ -91,20 +91,19 @@ http://127.0.0.1:18789/openalerts
 
 Ten rules run against every event in real-time. All thresholds and cooldowns are configurable.
 
-| Rule | Watches for | Severity | Threshold (default) |
-|---|---|---|---|
-| `llm-errors` | LLM/agent failures in 1 min window | ERROR | `1` error |
-| `infra-errors` | Infrastructure errors in 1 min window | ERROR | `1` error |
-| `gateway-down` | No heartbeat received | CRITICAL | `30000` ms (30s) |
-| `session-stuck` | Session idle too long | WARN | `120000` ms (2 min) |
-| `high-error-rate` | Message failure rate over last 20 | ERROR | `50`% |
-| `cost-hourly-spike` | LLM spend over last 60 minutes | WARN | `$5.00` |
-| `cost-daily-budget` | LLM spend over last 24 hours | ERROR | `$20.00` |
-| `queue-depth` | Queued items piling up | WARN | `10` items |
-| `tool-errors` | Tool failures in 1 min window | WARN | `1` error |
-| `heartbeat-fail` | Consecutive heartbeat failures | ERROR | `3` failures |
+| Rule              | Watches for                           | Severity | Threshold (default) |
+| ----------------- | ------------------------------------- | -------- | ------------------- |
+| `llm-errors`      | LLM/agent failures in 1 min window    | ERROR    | `1` error           |
+| `infra-errors`    | Infrastructure errors in 1 min window | ERROR    | `1` error           |
+| `gateway-down`    | No heartbeat received                 | CRITICAL | `30000` ms (30s)    |
+| `session-stuck`   | Session idle too long                 | WARN     | `120000` ms (2 min) |
+| `high-error-rate` | Message failure rate over last 20     | ERROR    | `50`%               |
+| `queue-depth`     | Queued items piling up                | WARN     | `10` items          |
+| `tool-errors`     | Tool failures in 1 min window         | WARN     | `1` error           |
+| `heartbeat-fail`  | Consecutive heartbeat failures        | ERROR    | `3` failures        |
 
 Every rule also accepts:
+
 - **`enabled`** — `false` to disable the rule (default: `true`)
 - **`cooldownMinutes`** — minutes before the same rule can fire again (default: `15`)
 
@@ -112,23 +111,21 @@ To tune rules, add a `rules` object in your plugin config:
 
 ```jsonc
 {
-  "plugins": {
-    "entries": {
-      "openalerts": {
-        "config": {
-          "cooldownMinutes": 10,
-          "rules": {
-            "llm-errors": { "threshold": 5 },
-            "infra-errors": { "cooldownMinutes": 30 },
-            "high-error-rate": { "enabled": false },
-            "gateway-down": { "threshold": 60000 },
-            "cost-hourly-spike": { "threshold": 8.5 },
-            "cost-daily-budget": { "threshold": 30 }
-          }
-        }
-      }
-    }
-  }
+	"plugins": {
+		"entries": {
+			"openalerts": {
+				"config": {
+					"cooldownMinutes": 10,
+					"rules": {
+						"llm-errors": { "threshold": 5 },
+						"infra-errors": { "cooldownMinutes": 30 },
+						"high-error-rate": { "enabled": false },
+						"gateway-down": { "threshold": 60000 },
+					},
+				},
+			},
+		},
+	},
 }
 ```
 
@@ -140,15 +137,15 @@ OpenAlerts can optionally use your configured LLM to enrich alerts with a human-
 
 ```jsonc
 {
-  "plugins": {
-    "entries": {
-      "openalerts": {
-        "config": {
-          "llmEnriched": true
-        }
-      }
-    }
-  }
+	"plugins": {
+		"entries": {
+			"openalerts": {
+				"config": {
+					"llmEnriched": true,
+				},
+			},
+		},
+	},
 }
 ```
 
@@ -170,11 +167,11 @@ Action: Update your API key in ~/.openclaw/.env with a valid key from platform.o
 
 Zero-token chat commands available in any connected channel:
 
-| Command | What it does |
-|---|---|
-| `/health` | System health snapshot — uptime, active alerts, stats |
-| `/alerts` | Recent alert history with severity and timestamps |
-| `/dashboard` | Returns the dashboard URL |
+| Command      | What it does                                          |
+| ------------ | ----------------------------------------------------- |
+| `/health`    | System health snapshot — uptime, active alerts, stats |
+| `/alerts`    | Recent alert history with severity and timestamps     |
+| `/dashboard` | Returns the dashboard URL                             |
 
 ## Roadmap
 

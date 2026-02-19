@@ -72,3 +72,20 @@ export {
 	type BoundedMapOptions,
 	type BoundedMapStats,
 } from "./bounded-map.js";
+
+// Collection Types (re-exported for convenience)
+export type {
+	MonitorSession,
+	MonitorActionType,
+	MonitorActionEventType,
+	MonitorAction,
+	MonitorExecEventType,
+	MonitorExecProcessStatus,
+	MonitorExecOutputChunk,
+	MonitorExecEvent,
+	MonitorExecProcess,
+	CollectionStats,
+	DiagnosticUsageEvent,
+	CostUsageTotals,
+	CostUsageSummary,
+} from "../collections/types.js";

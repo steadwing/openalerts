@@ -69,6 +69,8 @@ Things OpenClaw does NOT have natively that OpenAlerts provides:
 - **Log pruning** — auto-prune by age (7d) and size (512KB) every 6 hours
 - **Platform sync** — batch events to openalerts.dev with retry logic
 - **Formatted /health and /alerts commands** — quick status check from chat
+- **Session/Action/Exec tracking** — real-time monitoring with cost aggregation
+- **Cost tracking** — per-session token usage and cost accumulation via diagnostic events
 
 ---
 
@@ -276,9 +278,9 @@ Then pass the channel instance to `OpenAlertsEngine` via the `channels` option.
 
 ### Short Term
 - [ ] Add more OpenClaw event mappings as the SDK exposes new event types
-- [ ] Token usage tracking (cost alerts when spend exceeds threshold)
 - [ ] Rate limiting rule (alert when LLM calls exceed N/minute)
 - [ ] Configurable alert message templates
+- [ ] Cost alert rule (alert when session cost exceeds threshold)
 
 ### Medium Term
 - [ ] `@steadwing/openalerts-langchain` — LangChain/LangGraph callback handler
@@ -291,7 +293,7 @@ Then pass the channel instance to `OpenAlertsEngine` via the `channels` option.
 ### Long Term
 - [ ] Anomaly detection (ML-based, learns normal patterns and alerts on deviation)
 - [ ] Multi-agent correlation (detect cascading failures across agents)
-- [ ] Cost tracking and budget alerts (aggregate token spend across providers)
+- [ ] Budget alerts (aggregate token spend across providers with thresholds)
 - [ ] SLA monitoring (response time percentiles, availability tracking)
 - [ ] Incident management (alert grouping, acknowledgment, escalation)
 

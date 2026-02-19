@@ -86,8 +86,7 @@ export class GatewayClient extends EventEmitter {
 
 		this.ws.on("open", () => {
 			this.backoffMs = 1000;
-			// Delay connect handshake slightly to allow gateway to send challenge
-			setTimeout(() => this.sendConnectHandshake(), 800);
+			// Gateway sends 'connect.challenge' event first
 		});
 
 		this.ws.on("message", (data: Buffer) => {
@@ -123,17 +122,20 @@ export class GatewayClient extends EventEmitter {
 				minProtocol: 3,
 				maxProtocol: 3,
 				client: {
-					id: "gateway-client",
+					id: "cli",
 					displayName: "OpenAlerts Monitor",
 					version: "0.1.0",
 					platform: process.platform,
-					mode: "backend",
+					mode: "cli",
 				},
 				role: "operator",
-				scopes: ["operator.admin"],
-				auth: {
-					token: this.config.token,
-				},
+				scopes: ["operator.read"],
+				caps: [],
+				commands: [],
+				permissions: {},
+				locale: "en-US",
+				userAgent: "openalerts-monitor/0.1.0",
+				auth: this.config.token ? { token: this.config.token } : undefined,
 			},
 		};
 
@@ -143,7 +145,10 @@ export class GatewayClient extends EventEmitter {
 				this.emit("ready", result);
 			},
 			reject: (err: Error) => {
-				this.emit("error", new Error(`Connect handshake failed: ${err.message}`));
+				this.emit(
+					"error",
+					new Error(`Connect handshake failed: ${err.message}`),
+				);
 			},
 		});
 
@@ -154,6 +159,12 @@ export class GatewayClient extends EventEmitter {
 		try {
 			const frame: GatewayFrame = JSON.parse(raw);
 
+			// Handle challenge-response auth
+			if (frame.type === "event" && frame.event === "connect.challenge") {
+				this.sendConnectHandshake();
+				return;
+			}
+
 			if (frame.type === "res") {
 				const pending = this.pending.get(frame.id!);
 				if (pending) {
@@ -162,8 +173,8 @@ export class GatewayClient extends EventEmitter {
 							typeof frame.error === "string"
 								? frame.error
 								: typeof frame.payload === "object" &&
-										frame.payload &&
-										"message" in frame.payload
+									  frame.payload &&
+									  "message" in frame.payload
 									? String((frame.payload as Record<string, unknown>).message)
 									: JSON.stringify(frame.error ?? frame.payload);
 						pending.reject(new Error(errMsg));

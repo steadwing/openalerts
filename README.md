@@ -25,7 +25,7 @@
 
 AI agents fail silently. LLM errors, stuck sessions, gateway outages — nobody knows until a user complains.
 
-OpenAlerts watches your agent in real-time and alerts you the moment something goes wrong. A framework-agnostic core with adapter plugins — starting with [OpenClaw](https://github.com/openclaw/openclaw).
+OpenAlerts watches your agent in real-time and alerts you the moment something goes wrong. Runs fully locally — no external services, no cloud dependencies, everything stays on your machine. A framework-agnostic core with adapter plugins — starting with [OpenClaw](https://github.com/openclaw/openclaw).
 
 ## Quickstart
 
@@ -194,3 +194,7 @@ npm run clean      # remove dist/
 ## License
 
 Apache-2.0
+
+---
+
+<p align="center">Made with ❤️ by the Steadwing Team</p>

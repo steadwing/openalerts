@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "name": "openalerts-dashboard",
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --minify --format=iife --outfile=dist/bundle.js",
+    "build:dev": "esbuild src/main.ts --bundle --format=iife --outfile=dist/bundle.js",
+    "watch": "esbuild src/main.ts --bundle --format=iife --outfile=dist/bundle.js --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.0"
+  }
+}

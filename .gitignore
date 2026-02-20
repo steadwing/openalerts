@@ -1,9 +1,17 @@
 # Dependencies
 node_modules/
+.venv/
 
 # Build output
 dist/
+build/
 *.tsbuildinfo
+*.egg-info/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
 
 # OS
 .DS_Store
@@ -26,3 +34,7 @@ Desktop.ini
 
 # Temp
 *.tmp
+
+# Caches
+.pytest_cache/
+.ruff_cache/

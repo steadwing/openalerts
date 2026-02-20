@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OpenAlerts Monitor</title>
+<style>{css}</style>
+</head>
+<body>
+<div class="grid">
+  <div class="topbar">
+    <h1><span class="dot dead" id="sDot"></span> OPENALERTS</h1>
+    <span class="stat" id="sConn">connecting...</span>
+    <span class="stat">up: <b id="sUp">--</b></span>
+    <span class="stat">events: <b id="sEvts">0</b></span>
+    <span class="stat">llm: <b id="sLlm">0</b></span>
+    <span class="stat">tools: <b id="sTools">0</b></span>
+    <span class="stat">err: <b id="sErr">0</b></span>
+    <span class="stat">tokens: <b id="sTok">0</b></span>
+  </div>
+  <div class="tabbar">
+    <div class="tab active" data-tab="activity">Activity</div>
+    <div class="tab" data-tab="health">Health</div>
+    <div class="tab" data-tab="debug">Debug</div>
+  </div>
+  <div class="content">
+    <div class="tab-content active" id="tab-activity">
+      <div class="activity-panels">
+        <div class="panel">
+          <div class="panel-header"><span>Live Timeline</span><span style="color:#484f58;font-weight:400" id="evCnt">0</span></div>
+          <div class="scroll" id="evList"><div class="empty-msg" id="emptyMsg">Waiting for events... run an OpenManus agent to see activity.</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">Alerts</div>
+          <div class="scroll" id="alList"><div class="empty-msg" id="alEmpty">No alerts.</div></div>
+          <div class="rules" id="rulesEl"><h3>Rules</h3></div>
+        </div>
+      </div>
+    </div>
+    <div class="tab-content" id="tab-health">
+      <div class="health-t" id="hC"><div class="empty-msg">Loading...</div></div>
+    </div>
+    <div class="tab-content" id="tab-debug">
+      <div class="health-t">
+        <div class="h-sec"><h3>Engine State</h3><div class="h-grid" id="dbState"></div></div>
+        <div class="h-sec"><h3>Recent Events (Last 20)</h3><div id="dbEvents" style="font-size:11px;max-height:400px;overflow-y:auto"></div></div>
+        <div class="h-sec"><h3>Rule Cooldowns</h3><div id="dbRules"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>{js}</script>
+</body>
+</html>

@@ -1,62 +1,16 @@
 {
-  "name": "@steadwing/openalerts",
-  "version": "0.2.5",
-  "type": "module",
-  "description": "OpenAlerts — An alerting layer for agentic frameworks",
-  "author": "Steadwing",
-  "license": "Apache-2.0",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
-  "files": ["dist", "openclaw.plugin.json"],
-  "scripts": {
-    "build": "tsc",
-    "typecheck": "tsc --noEmit",
-    "clean": "node -e \"const fs=require('fs');try{fs.rmSync('dist',{recursive:true,force:true})}catch{}\"",
-    "publish": "npm publish",
-    "prepublishOnly": "npm run build"
-  },
-  "dependencies": {
-    "eventemitter3": "^5.0.1",
-    "ws": "^8.18.0"
-  },
-  "peerDependencies": {
-    "openclaw": "*"
-  },
-  "devDependencies": {
-    "@types/ws": "^8.5.13",
-    "typescript": "^5.9.3"
-  },
-  "openclaw": {
-    "extensions": ["./dist/index.js"]
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/steadwing/openalerts.git"
-  },
-  "homepage": "https://github.com/steadwing/openalerts#readme",
-  "bugs": "https://github.com/steadwing/openalerts/issues",
-  "keywords": [
-    "openclaw",
-    "openclaw-plugin",
-    "alerting",
-    "monitoring",
-    "observability",
-    "llm-monitoring",
-    "agent-monitoring",
-    "ai-agents",
-    "real-time-alerts",
-    "error-tracking"
+  "private": true,
+  "name": "openalerts",
+  "description": "OpenAlerts — Real-time monitoring & alerting for AI agent frameworks",
+  "workspaces": [
+    "node",
+    "dashboard"
   ],
-  "engines": {
-    "node": ">=18"
-  },
-  "overrides": {
-    "tar": "^7.5.7"
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "build:node": "npm run build --workspace=node",
+    "build:dashboard": "npm run build --workspace=dashboard",
+    "typecheck": "npm run typecheck --workspace=node",
+    "clean": "npm run clean --workspaces --if-present"
   }
 }

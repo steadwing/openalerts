@@ -1,0 +1,55 @@
+[project]
+name = "openalerts"
+version = "0.1.0"
+description = "Real-time monitoring & alerting SDK for AI agent frameworks"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.0",
+    "httpx>=0.27.0",
+    "aiofiles>=24.0",
+]
+
+[project.optional-dependencies]
+openmanus = ["openmanus>=0.1.0"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.25",
+    "pytest-mock>=3.14",
+    "ruff>=0.9",
+]
+
+[project.scripts]
+openalerts = "openalerts.cli:main"
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-dir]
+openalerts = "src"
+
+[tool.setuptools]
+packages = [
+    "openalerts",
+    "openalerts.adapters",
+    "openalerts.channels",
+    "openalerts.core",
+    "openalerts.dashboard",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+src = ["src"]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/dashboard/html.py" = ["E501"]

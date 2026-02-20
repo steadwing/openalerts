@@ -467,6 +467,18 @@ export class CollectionManager {
 		return Array.from(this.sessions.values());
 	}
 
+	/**
+	 * Returns only recently-active sessions for the dashboard.
+	 * Filters out stale idle sessions loaded from filesystem that are older than windowMs.
+	 * Active/thinking sessions are always included regardless of age.
+	 */
+	getActiveSessions(windowMs = 2 * 60 * 60 * 1000): MonitorSession[] {
+		const cutoff = Date.now() - windowMs;
+		return Array.from(this.sessions.values())
+			.filter(s => s.status !== "idle" || s.lastActivityAt >= cutoff)
+			.sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+	}
+
 	getActions(opts?: { sessionKey?: string; limit?: number }): MonitorAction[] {
 		let actions = Array.from(this.actions.values());
 		if (opts?.sessionKey) {

@@ -197,4 +197,4 @@ Apache-2.0
 
 ---
 
-<p align="center">Made with ❤️ by the Steadwing Team</p>
+<p align="center">Made with ❤️ by Steadwing Team</p>

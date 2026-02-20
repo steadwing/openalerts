@@ -194,6 +194,62 @@ export function getDashboardHtml(): string {
   .log-detail .ld-grid .lk{color:#8b949e;text-align:right}
   .log-detail .ld-grid .lv{color:#c9d1d9;word-break:break-all}
   .log-detail .ld-file{color:#484f58;font-size:10px;margin-top:3px}
+
+  /* ── Graph View ──────────────────── */
+  .view-toggle{display:flex;gap:2px;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:2px;font-size:11px}
+  .view-toggle button{background:transparent;border:none;color:#8b949e;padding:3px 10px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:11px}
+  .view-toggle button:hover{color:#c9d1d9;background:#21262d}
+  .view-toggle button.active{background:#21262d;color:#58a6ff}
+  #graphView{display:none;flex:1;overflow:auto;position:relative;background:#0d1117}
+  #graphView.active{display:block}
+  .graph-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+  .graph-node{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#161b22;border:2px solid #30363d;border-radius:8px;padding:8px 12px;min-width:60px;cursor:pointer;transition:all 0.15s}
+  .graph-node:hover{border-color:#58a6ff;background:#1c2129}
+  .graph-node.session{border-color:#58a6ff;background:#0d1a2d}
+  .graph-node.action{border-radius:6px;padding:6px 10px}
+  .graph-node.tool{border-color:#bc8cff;background:#1a0d2d;border-radius:4px;padding:4px 8px;font-size:11px}
+  .graph-node.exec{border-color:#d29922;background:#2d1a0d;border-radius:4px;padding:4px 8px;font-size:11px}
+  .node-icon{font-size:20px;margin-bottom:2px}
+  .node-label{font-size:11px;color:#c9d1d9;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+  .node-status{font-size:9px;color:#8b949e;margin-top:2px}
+  .node-status.running{color:#58a6ff}
+  .node-status.completed{color:#3fb950}
+  .node-status.error{color:#f85149}
+
+  /* ── Agent tab ──────────────────── */
+  .agent-t{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  .agent-bar{background:#161b22;padding:8px 12px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:10px;flex-shrink:0;font-size:12px}
+  .agent-bar .view-toggle{margin-left:auto}
+  .agent-list{flex:1;overflow-y:auto;font-family:'SF Mono','Cascadia Code','Consolas',monospace;font-size:12px}
+  .agent-graph{flex:1;overflow:auto;position:relative;background:#0d1117;display:none}
+  .agent-graph.active{display:block}
+  .agent-session{border-bottom:1px solid #21262d}
+  .agent-session-hdr{padding:6px 10px;display:flex;align-items:center;gap:6px;cursor:pointer;background:#161b22;border-left:3px solid #58a6ff;transition:all 0.12s}
+  .agent-session-hdr:hover{background:#1c2129}
+  .agent-session.done .agent-session-hdr{border-left-color:#3fb950}
+  .agent-session.error .agent-session-hdr{border-left-color:#f85149}
+  .agent-session .arr{color:#484f58;font-size:9px;width:12px;text-align:center;transition:transform 0.12s}
+  .agent-session .arr.shut{transform:rotate(-90deg)}
+  .agent-session .plat-label{font-size:11px;color:#58a6ff;font-weight:600}
+  .agent-session .sid{color:#c9d1d9;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+  .agent-session .agent-id{color:#bc8cff;font-size:10px;margin-left:6px;padding:1px 4px;background:#2a1f3d;border-radius:3px}
+  .agent-session .status{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:auto}
+  .agent-session .status.running{background:#1f3a5f;color:#58a6ff}
+  .agent-session .status.done{background:#1a3a2a;color:#3fb950}
+  .agent-session .status.error{background:#3d1a1a;color:#f85149}
+  .agent-session-body{overflow:hidden;transition:max-height 0.2s ease-out;background:#0d1117}
+  .agent-session-body.shut{max-height:0!important}
+  .agent-event{padding:2px 10px 2px 24px;border-top:1px solid #161b22;line-height:1.6;animation:fi 0.15s ease}
+  .agent-event:hover{background:#161b22}
+  .agent-event .ts{color:#484f58;font-size:11px;min-width:60px;display:inline-block}
+  .agent-event .ico{display:inline-block;width:18px;text-align:center}
+  .agent-event .msg{color:#c9d1d9}
+  .agent-event .detail{color:#8b949e;font-size:11px;padding:1px 0 1px 78px}
+  .agent-event .output{background:#161b22;border:1px solid #21262d;border-radius:3px;padding:4px 6px;margin:2px 0 2px 78px;font-size:11px;color:#8b949e;max-height:80px;overflow-y:auto;white-space:pre-wrap;word-break:break-all}
+  .agent-event .duration{color:#d29922}
+  .agent-event .tokens{color:#58a6ff}
+  .agent-event .exit-0{color:#3fb950}
+  .agent-event .exit-err{color:#f85149}
 </style>
 </head>
 <body>
@@ -209,6 +265,7 @@ export function getDashboardHtml(): string {
   </div>
   <div class="tabbar">
     <div class="tab active" data-tab="activity">Activity</div>
+    <div class="tab" data-tab="agent">Agent</div>
     <div class="tab" data-tab="logs">System Logs</div>
     <div class="tab" data-tab="health">Health</div>
     <div class="tab" data-tab="debug">Debug</div>
@@ -218,7 +275,10 @@ export function getDashboardHtml(): string {
     <div class="tab-content active" id="tab-activity">
       <div class="activity-panels">
         <div class="panel">
-          <div class="panel-header"><span>Live Timeline</span><span style="color:#484f58;font-weight:400" id="evCnt">0</span></div>
+          <div class="panel-header">
+            <span>Live Timeline</span>
+            <span style="color:#484f58;font-weight:400" id="evCnt">0</span>
+          </div>
           <div class="scroll" id="evList"><div class="empty-msg" id="emptyMsg">Waiting for events... send a message to your bot.</div></div>
         </div>
         <div class="panel">
@@ -226,6 +286,17 @@ export function getDashboardHtml(): string {
           <div class="scroll" id="alList"><div class="empty-msg" id="alEmpty">No alerts.</div></div>
           <div class="rules" id="rulesEl"><h3>Rules</h3></div>
         </div>
+      </div>
+    </div>
+    <!-- Agent -->
+    <div class="tab-content" id="tab-agent">
+      <div class="agent-t">
+        <div class="agent-bar">
+          <span style="color:#8b949e">Real-time agent monitoring</span>
+          <span class="stat">sessions: <b id="agSessions">0</b></span>
+          <span class="stat">events: <b id="agEvents">0</b></span>
+        </div>
+        <div class="agent-list" id="agList"><div class="empty-msg" id="agEmpty">Waiting for agent events...</div></div>
       </div>
     </div>
     <!-- System Logs -->
@@ -626,8 +697,13 @@ export function getDashboardHtml(): string {
       evSrc.addEventListener('history',function(e){try{var evs=JSON.parse(e.data);for(var i=0;i<evs.length;i++)addEvent(evs[i])}catch(_){}});
       evSrc.addEventListener('oclog',function(e){try{addLogEntry(JSON.parse(e.data))}catch(_){}});
       evSrc.onopen=function(){$('sDot').className='dot live';$('sConn').textContent='live'};
-      evSrc.onerror=function(e){$('sDot').className='dot dead';$('sConn').textContent='err:'+evSrc.readyState};
-    }catch(e){$('sConn').textContent='SSE fail:'+e.message}
+      evSrc.onerror=function(e){
+        $('sDot').className='dot dead';
+        $('sConn').textContent='reconnecting...';
+        evSrc.close();
+        setTimeout(connectSSE,3000);
+      };
+    }catch(e){$('sConn').textContent='SSE fail:'+e.message;setTimeout(connectSSE,3000);}
   }
 
   // ─── State polling ──────────────────────
@@ -928,6 +1004,183 @@ export function getDashboardHtml(): string {
 
   }
   $('dbRefresh').addEventListener('click',refreshDebug);
+
+  // ─── Agent Tab ──────────────────────
+  var agSessions={}, agEventCount=0, agEs=null, agGraphVisible=false;
+  var PLAT_LABELS={telegram:'Telegram',discord:'Discord',slack:'Slack',whatsapp:'WhatsApp',subagent:'Subagent',unknown:'Unknown'};
+
+  function getPlatLabel(platform){
+    if(!platform)return PLAT_LABELS.unknown;
+    var p=platform.toLowerCase();
+    if(p.indexOf('telegram')>=0)return PLAT_LABELS.telegram;
+    if(p.indexOf('discord')>=0)return PLAT_LABELS.discord;
+    if(p.indexOf('slack')>=0)return PLAT_LABELS.slack;
+    if(p.indexOf('whatsapp')>=0)return PLAT_LABELS.whatsapp;
+    if(p.indexOf('subagent')>=0)return PLAT_LABELS.subagent;
+    return PLAT_LABELS.unknown;
+  }
+
+  function getAgSession(sid, ev){
+    if(agSessions[sid])return agSessions[sid];
+    var container=$('agList');
+    var short=sid.length>25?sid.slice(0,10)+'..'+sid.slice(-6):sid;
+    var platMatch=sid.match(/:(\w+):/);
+    var plat=platMatch?platMatch[1]:'unknown';
+    var platLabel=getPlatLabel(plat);
+    var agentId=ev&&ev.agentId?ev.agentId:null;
+    var div=document.createElement('div');
+    div.className='agent-session';
+    var headerHtml='<div class="agent-session-hdr"><span class="arr">\u25BC</span><span class="plat-label">['+platLabel+']</span><span class="sid" title="'+esc(sid)+'">'+esc(short)+'</span>';
+    if(agentId)headerHtml+='<span class="agent-id" title="'+esc(agentId)+'">'+esc(agentId.length>15?agentId.slice(0,12)+'..':agentId)+'</span>';
+    headerHtml+='<span class="status running">running</span></div><div class="agent-session-body"></div>';
+    div.innerHTML=headerHtml;
+    var hdr=div.querySelector('.agent-session-hdr');
+    var body=div.querySelector('.agent-session-body');
+    hdr.addEventListener('click',function(){
+      var shut=!body.classList.contains('shut');
+      body.classList.toggle('shut',shut);
+      hdr.querySelector('.arr').classList.toggle('shut',shut);
+    });
+    container.insertBefore(div,container.firstChild);
+    agSessions[sid]={el:div,body:body,hdr:hdr,status:'running',count:0,platform:platLabel,agentId:agentId};
+    $('agEmpty').style.display='none';
+    return agSessions[sid];
+  }
+
+  function addAgEvent(ev){
+    agEventCount++;
+    $('agEvents').textContent=agEventCount;
+    var sid=ev.sessionKey||ev.agentId||'unknown';
+    var s=getAgSession(sid, ev);
+    s.count++;
+    if(ev.agentId && !s.agentId){
+      s.agentId=ev.agentId;
+      var agentIdEl=document.createElement('span');
+      agentIdEl.className='agent-id';
+      agentIdEl.setAttribute('title',ev.agentId);
+      agentIdEl.textContent=ev.agentId.length>15?ev.agentId.slice(0,12)+'..':ev.agentId;
+      s.hdr.querySelector('.sid').after(agentIdEl);
+    }
+    $('agSessions').textContent=Object.keys(agSessions).length;
+
+    var d=ev.data||{};
+    var icon='',msg='',detail='',cls='';
+
+    if(ev.type==='agent'){
+      if(d.phase==='start'){icon='[>]';msg='AGENT START';cls='start';}
+      else if(d.phase==='end'){
+        icon='[x]';msg='COMPLETE';
+        s.hdr.querySelector('.status').className='status done';
+        s.el.classList.add('done');
+        if(d.durationMs)detail+='<span class="duration">'+fD(d.durationMs)+'</span> ';
+        if(d.tokens)detail+='<span class="tokens">'+d.tokens+' tokens</span>';
+        if(d.error){detail+=' <span style="color:#f85149">'+esc(String(d.error).substring(0,60))+'</span>';cls='error';}
+        else cls='complete';
+      }else if(d.phase==='tool'){
+        icon='[T]';
+        msg=d.toolName||'tool';
+        if(d.durationMs)detail='<span class="duration">'+fD(d.durationMs)+'</span>';
+        if(d.error){detail+=' <span style="color:#f85149">ERR</span>';cls='error';}
+        else cls='start';
+      }else if(d.phase==='streaming'){
+        // Agent streaming text — update the last streaming row for this session, or add new
+        var lastStream=s.body.querySelector('.agent-event.streaming-row');
+        if(lastStream){lastStream.querySelector('.msg').textContent=(d.content||'').substring(0,120);return;}
+        icon='[...]';msg=(d.content||'').substring(0,120);cls='thinking';
+        // tag element for future updates
+        var streamEv=document.createElement('div');
+        streamEv.className='agent-event streaming-row';
+        streamEv.innerHTML='<span class="ts">'+fT(ev.ts)+'</span><span class="ico">'+icon+'</span><span class="msg thinking">'+esc(msg)+'</span>';
+        s.body.appendChild(streamEv);
+        return;
+      }else if(d.phase==='error'){
+        icon='[!]';msg='ERROR: '+(d.content||d.error||'').substring(0,100);
+        s.hdr.querySelector('.status').className='status error';
+        s.el.classList.add('error');cls='error';
+      }else if(d.phase==='message'){
+        icon='[>]';msg='MSG IN: '+(d.content||'').substring(0,80);cls='thinking';
+      }else{icon='[?]';msg=JSON.stringify(d).substring(0,100);}
+    }else if(ev.type==='chat'){
+      if(d.state==='delta'){
+        // Update existing delta row for this session, or create new
+        var lastChat=s.body.querySelector('.agent-event.chat-delta-row');
+        if(lastChat){lastChat.querySelector('.msg').textContent=(d.content||'').substring(0,120);return;}
+        icon='[~]';msg=(d.content||'thinking...').substring(0,120);cls='thinking';
+        var chatEv=document.createElement('div');
+        chatEv.className='agent-event chat-delta-row';
+        chatEv.innerHTML='<span class="ts">'+fT(ev.ts)+'</span><span class="ico">'+icon+'</span><span class="msg thinking">'+esc(msg)+'</span>';
+        s.body.appendChild(chatEv);
+        return;
+      }else if(d.state==='final'){
+        // Clear delta row and show final
+        var oldDelta=s.body.querySelector('.chat-delta-row');
+        if(oldDelta)oldDelta.remove();
+        icon='[ok]';msg=(d.content||'').substring(0,150)||'[response sent]';
+        if(d.inputTokens||d.outputTokens)detail='<span class="tokens">in:'+((d.inputTokens||0))+' out:'+((d.outputTokens||0))+'</span>';
+        cls='complete';
+        s.hdr.querySelector('.status').className='status done';
+      }else if(d.state==='error'){
+        icon='[!]';msg='Error: '+(d.content||'').substring(0,100);cls='error';
+        s.hdr.querySelector('.status').className='status error';
+      }else{
+        icon='[?]';msg=(d.content||d.state||'').substring(0,150);
+      }
+    }else if(ev.type==='exec'){
+      if(d.eventType==='started'){icon='[>]';msg='EXEC: '+d.command;cls='exec';}
+      else if(d.eventType==='output'){
+        icon='|';
+        msg='';
+        var outDiv=document.createElement('div');
+        outDiv.className='agent-event';
+        outDiv.innerHTML='<span class="ts">'+fT(ev.ts)+'</span><span class="ico">'+icon+'</span><div class="output">'+esc((d.output||'').substring(0,500))+'</div>';
+        s.body.appendChild(outDiv);
+        return;
+      }else if(d.eventType==='completed'){
+        icon='[ok]';
+        msg='completed';
+        if(d.exitCode!==0){cls='error';s.hdr.querySelector('.status').className='status error';s.el.classList.add('error');}
+        else cls='complete';
+        detail='exit: <span class="'+(d.exitCode===0?'exit-0':'exit-err')+'">'+(d.exitCode??0)+'</span>';
+        if(d.durationMs)detail+=', <span class="duration">'+d.durationMs+'ms</span>';
+      }
+    }
+    }else if(ev.type==='exec'){
+      if(d.eventType==='started'){icon='\\u26A1';msg='EXEC: '+d.command;cls='exec';}
+      else if(d.eventType==='output'){
+        icon='\\u251C';
+        msg='';
+        var outDiv=document.createElement('div');
+        outDiv.className='agent-event';
+        outDiv.innerHTML='<span class="ts">'+fT(ev.ts)+'</span><span class="ico">'+icon+'</span><div class="output">'+esc((d.output||'').substring(0,500))+'</div>';
+        s.body.appendChild(outDiv);
+        return;
+      }else if(d.eventType==='completed'){
+        icon='\\u2713';
+        msg='completed';
+        if(d.exitCode!==0){cls='error';s.hdr.querySelector('.status').className='status error';s.el.classList.add('error');}
+        else cls='complete';
+        detail='exit: <span class="'+(d.exitCode===0?'exit-0':'exit-err')+'">'+(d.exitCode??0)+'</span>';
+        if(d.durationMs)detail+=', <span class="duration">'+d.durationMs+'ms</span>';
+      }
+    }
+
+    var evDiv=document.createElement('div');
+    evDiv.className='agent-event';
+    evDiv.innerHTML='<span class="ts">'+fT(ev.ts)+'</span><span class="ico">'+icon+'</span><span class="msg '+cls+'">'+esc(msg)+'</span>'+(detail?'<div class="detail">'+detail+'</div>':'');
+    s.body.appendChild(evDiv);
+  }
+
+  function connectAgentSSE(){
+    try{
+      agEs=new EventSource('/openalerts/agent-monitor/stream');
+      agEs.addEventListener('agent',function(e){try{addAgEvent(JSON.parse(e.data))}catch(_){}});
+      agEs.addEventListener('chat',function(e){try{addAgEvent(JSON.parse(e.data))}catch(_){}});
+      agEs.addEventListener('exec',function(e){try{addAgEvent(JSON.parse(e.data))}catch(_){}});
+      agEs.onerror=function(){setTimeout(connectAgentSSE,3000);};
+    }catch(e){}
+  }
+
+  connectAgentSSE();
 
   // ─── Boot ──────────────────────
   connectSSE();pollState();setInterval(pollState,4000);

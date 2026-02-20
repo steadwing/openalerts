@@ -31,6 +31,8 @@ import { bindEngine, createMonitorCommands } from "./plugin/commands.js";
 import {
 	createDashboardHandler,
 	closeDashboardConnections,
+	emitAgentMonitorEvent,
+	recordGatewayEvent,
 } from "./plugin/dashboard-routes.js";
 import {
 	CollectionManager,
@@ -40,13 +42,11 @@ import {
 	type MonitorSession,
 	type MonitorAction,
 	type MonitorExecEvent,
-	type CostUsageSummary,
 	type DiagnosticUsageEvent,
 } from "./collections/index.js";
 
 const PLUGIN_ID = "openalerts";
 const LOG_PREFIX = "openalerts";
-const COST_SYNC_INTERVAL_MS = 60_000;
 
 type OpenClawPluginService = {
 	id: string;
@@ -72,7 +72,6 @@ let gatewayClient: GatewayClient | null = null;
 let collections: CollectionManager | null = null;
 let collectionsPersistence: CollectionPersistence | null = null;
 let sessionSyncInterval: ReturnType<typeof setInterval> | null = null;
-let costSyncInterval: ReturnType<typeof setInterval> | null = null;
 
 function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 	return {
@@ -87,9 +86,10 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 			const channels = target ? [new OpenClawAlertChannel(api, target)] : [];
 
 			// Create LLM enricher if enabled (default: false)
-			const enricher = config.llmEnriched === true
-				? createOpenClawEnricher(api, logger)
-				: null;
+			const enricher =
+				config.llmEnriched === true
+					? createOpenClawEnricher(api, logger)
+					: null;
 
 			// Create and start the universal engine
 			engine = new OpenAlertsEngine({
@@ -119,7 +119,9 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 
 					// Feed model.usage to collections for cost tracking
 					if (event.type === "model.usage" && collections) {
-						const parsed = diagnosticUsageToSessionUpdate(event as unknown as DiagnosticUsageEvent);
+						const parsed = diagnosticUsageToSessionUpdate(
+							event as unknown as DiagnosticUsageEvent,
+						);
 						if (parsed.session) {
 							collections.upsertSession(parsed.session);
 						}
@@ -139,18 +141,29 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 			logBridgeCleanup = logBridge.cleanup;
 
 			// Helper to track actions in collections (for sessions, tools, messages)
-			const trackAction = (type: MonitorAction["type"], eventType: MonitorAction["eventType"], data: Record<string, unknown>, context: Record<string, unknown>) => {
+			const trackAction = (
+				type: MonitorAction["type"],
+				eventType: MonitorAction["eventType"],
+				data: Record<string, unknown>,
+				context: Record<string, unknown>,
+			) => {
 				if (!collections || !collectionsPersistence) return;
-				
+
 				const action: MonitorAction = {
 					id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
 					runId: (data.runId as string) || `run-${Date.now()}`,
-					sessionKey: (context.sessionKey as string) || (context.sessionId as string) || "unknown",
+					sessionKey:
+						(context.sessionKey as string) ||
+						(context.sessionId as string) ||
+						"unknown",
 					seq: Date.now() % 1000000,
 					type,
 					eventType,
 					timestamp: Date.now(),
-					content: typeof data.content === "string" ? data.content : JSON.stringify(data).slice(0, 500),
+					content:
+						typeof data.content === "string"
+							? data.content
+							: JSON.stringify(data).slice(0, 500),
 				};
 				collections.addAction(action);
 				collectionsPersistence.queueAction(action);
@@ -166,68 +179,137 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 				// Tool execution tracking
 				apiOn("after_tool_call", (data, hookCtx) => {
 					if (!engine) return;
-					engine.ingest(
-						translateToolCallHook(
-							data as {
-								toolName: string;
-								params: Record<string, unknown>;
-								result?: unknown;
-								error?: string;
-								durationMs?: number;
+					const d = data as {
+						toolName: string;
+						params: Record<string, unknown>;
+						result?: unknown;
+						error?: string;
+						durationMs?: number;
+					};
+					const ctx = hookCtx as Record<string, unknown>;
+					const sessionId =
+						(ctx.sessionKey as string) ||
+						(ctx.sessionId as string) ||
+						undefined;
+					const agentId = ctx.agentId as string | undefined;
+					const runId = ctx.runId as string | undefined;
+					engine.ingest(translateToolCallHook(d, { sessionId, agentId }));
+					const _toolKey =
+						sessionId && isRealSessionKey(sessionId)
+							? sessionId
+							: runSessionMap.get(runId || "");
+					const _toolParamSummary = d.params
+						? JSON.stringify(d.params).slice(0, 200)
+						: undefined;
+					const _toolResultSummary = d.result
+						? JSON.stringify(d.result).slice(0, 300)
+						: undefined;
+					if (_toolKey)
+						emitAgentMonitorEvent({
+							type: "agent",
+							data: {
+								ts: Date.now(),
+								type: "agent",
+								sessionKey: _toolKey,
+								runId: runId || `tool-${Date.now()}`,
+								data: {
+									phase: "tool",
+									toolName: d.toolName,
+									durationMs: d.durationMs,
+									error: d.error,
+									params: _toolParamSummary,
+									result: _toolResultSummary,
+								},
 							},
-							{
-								sessionId: (hookCtx as Record<string, unknown>).sessionId as
-									| string
-									| undefined,
-								agentId: (hookCtx as Record<string, unknown>).agentId as
-									| string
-									| undefined,
-							},
-						),
-					);
+						});
 				});
 
 				// Agent lifecycle
 				apiOn("before_agent_start", (data, hookCtx) => {
 					if (!engine) return;
+					const ctx = hookCtx as Record<string, unknown>;
+					const sessionId =
+						(ctx.sessionKey as string) ||
+						(ctx.sessionId as string) ||
+						undefined;
+					const agentId = ctx.agentId as string | undefined;
+					const runId = ctx.runId as string | undefined;
 					engine.ingest(
 						translateAgentStartHook(
 							data as { prompt: string; messages?: unknown[] },
-							{
-								sessionId: (hookCtx as Record<string, unknown>).sessionId as
-									| string
-									| undefined,
-								agentId: (hookCtx as Record<string, unknown>).agentId as
-									| string
-									| undefined,
-							},
+							{ sessionId, agentId },
 						),
 					);
+					const _startKey =
+						sessionId && isRealSessionKey(sessionId)
+							? sessionId
+							: runSessionMap.get(runId || "");
+					const _msgs = (data as { messages?: unknown[] }).messages;
+					const _lastUMsg = Array.isArray(_msgs)
+						? (_msgs as Array<Record<string, unknown>>)
+								.filter((m) => m.role === "user")
+								.pop()
+						: null;
+					const _startCtx = _lastUMsg
+						? (typeof _lastUMsg.content === "string"
+								? _lastUMsg.content
+								: JSON.stringify(_lastUMsg.content)
+							).slice(0, 300)
+						: undefined;
+					if (_startKey) {
+						runSessionMap.set(runId || "", _startKey);
+						emitAgentMonitorEvent({
+							type: "agent",
+							data: {
+								ts: Date.now(),
+								type: "agent",
+								sessionKey: _startKey,
+								runId: runId || `run-${Date.now()}`,
+								data: { phase: "start", agentId, content: _startCtx },
+							},
+						});
+					}
 				});
 
 				apiOn("agent_end", (data, hookCtx) => {
 					if (!engine) return;
-					engine.ingest(
-						translateAgentEndHook(
-							data as {
-								messages: unknown[];
-								success: boolean;
-								error?: string;
-								durationMs?: number;
+					const d = data as {
+						messages: unknown[];
+						success: boolean;
+						error?: string;
+						durationMs?: number;
+					};
+					const ctx = hookCtx as Record<string, unknown>;
+					const sessionId =
+						(ctx.sessionKey as string) ||
+						(ctx.sessionId as string) ||
+						undefined;
+					const agentId = ctx.agentId as string | undefined;
+					const runId = ctx.runId as string | undefined;
+					engine.ingest(translateAgentEndHook(d, { sessionId, agentId }));
+					const _endKey =
+						sessionId && isRealSessionKey(sessionId)
+							? sessionId
+							: runSessionMap.get(runId || "");
+					if (_endKey)
+						emitAgentMonitorEvent({
+							type: "agent",
+							data: {
+								ts: Date.now(),
+								type: "agent",
+								sessionKey: _endKey,
+								runId: runId || `run-${Date.now()}`,
+								data: {
+									phase: "end",
+									durationMs: d.durationMs,
+									success: d.success,
+									error: d.error,
+								},
 							},
-							{
-								sessionId: (hookCtx as Record<string, unknown>).sessionId as
-									| string
-									| undefined,
-								agentId: (hookCtx as Record<string, unknown>).agentId as
-									| string
-									| undefined,
-							},
-						),
-					);
+						});
 				});
 
-			// Session lifecycle
+				// Session lifecycle
 				apiOn("session_start", (data, hookCtx) => {
 					if (!engine) return;
 					engine.ingest(
@@ -237,7 +319,12 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 					);
 					// Track in collections
 					const ctx = hookCtx as Record<string, unknown>;
-					trackAction("start", "system", { sessionId: (data as { sessionId: string }).sessionId }, ctx);
+					trackAction(
+						"start",
+						"system",
+						{ sessionId: (data as { sessionId: string }).sessionId },
+						ctx,
+					);
 				});
 
 				apiOn("session_end", (data, hookCtx) => {
@@ -253,10 +340,15 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 					);
 					// Track in collections
 					const ctx = hookCtx as Record<string, unknown>;
-					trackAction("complete", "system", { 
-						sessionId: (data as { sessionId: string }).sessionId,
-						messageCount: (data as { messageCount: number }).messageCount 
-					}, ctx);
+					trackAction(
+						"complete",
+						"system",
+						{
+							sessionId: (data as { sessionId: string }).sessionId,
+							messageCount: (data as { messageCount: number }).messageCount,
+						},
+						ctx,
+					);
 				});
 
 				// Message delivery tracking (all messages — success and failure)
@@ -281,26 +373,42 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 				});
 
 				// Inbound message tracking (fires reliably in all modes)
+				// Inbound message tracking (fires reliably in all modes)
 				apiOn("message_received", (data, hookCtx) => {
 					if (!engine) return;
+					const d = data as {
+						from: string;
+						content: string;
+						timestamp?: number;
+						metadata?: Record<string, unknown>;
+					};
+					const ctx = hookCtx as Record<string, unknown>;
+					const channelId = ctx.channelId as string | undefined;
+					const accountId = ctx.accountId as string | undefined;
 					engine.ingest(
-						translateMessageReceivedHook(
-							data as {
-								from: string;
-								content: string;
-								timestamp?: number;
-								metadata?: Record<string, unknown>;
-							},
-							{
-								channelId: (hookCtx as Record<string, unknown>).channelId as
-									| string
-									| undefined,
-								accountId: (hookCtx as Record<string, unknown>).accountId as
-									| string
-									| undefined,
-							},
-						),
+						translateMessageReceivedHook(d, { channelId, accountId }),
 					);
+					// Emit inbound message to agent monitor live view
+					const _inboundKey = channelId || "unknown";
+					// Register channelId as a known session so subsequent agent events can link to it
+					if (_inboundKey !== "unknown" && isRealSessionKey(_inboundKey)) {
+						// Will be linked by runId once agent starts
+					}
+					emitAgentMonitorEvent({
+						type: "chat",
+						data: {
+							ts: d.timestamp || Date.now(),
+							type: "chat",
+							sessionKey: _inboundKey,
+							runId: "inbound",
+							data: {
+								state: "inbound",
+								content: d.content,
+								from: d.from,
+								isInbound: true,
+							},
+						},
+					});
 				});
 
 				// Tool start tracking (fires reliably — complements log-bridge tool end)
@@ -388,6 +496,29 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 				// Pre-send message tracking (fires before message_sent)
 				apiOn("message_sending", (data, hookCtx) => {
 					if (!engine) return;
+					const _sendCtx = hookCtx as Record<string, unknown>;
+					const _sendChannelId = _sendCtx.channelId as string | undefined;
+					const _sendData = data as {
+						to: string;
+						content: string;
+						metadata?: Record<string, unknown>;
+					};
+					if (_sendChannelId) {
+						emitAgentMonitorEvent({
+							type: "chat",
+							data: {
+								ts: Date.now(),
+								type: "chat",
+								sessionKey: _sendChannelId,
+								runId: "outbound",
+								data: {
+									state: "outbound",
+									content: _sendData.content,
+									to: _sendData.to,
+								},
+							},
+						});
+					}
 					engine.ingest(
 						translateMessageSendingHook(
 							data as {
@@ -418,9 +549,9 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 					engine.ingest(translateGatewayStopHook(data as { reason?: string }));
 				});
 
-			logger.info(
-				`${LOG_PREFIX}: subscribed to 13 plugin hooks (100% coverage: tool, agent, session, gateway, message, compaction)`,
-			);
+				logger.info(
+					`${LOG_PREFIX}: subscribed to 13 plugin hooks (100% coverage: tool, agent, session, gateway, message, compaction)`,
+				);
 			}
 
 			// ── Collections: Session/Action/Exec tracking ───────────────────────────
@@ -431,16 +562,25 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 			collectionsPersistence.start();
 
 			// Read sessions from filesystem
-			const agentsDir = path.join(process.env.OPENCLAW_HOME ?? path.join(os.homedir(), ".openclaw"), "agents");
+			const agentsDir = path.join(
+				process.env.OPENCLAW_HOME ?? path.join(os.homedir(), ".openclaw"),
+				"agents",
+			);
 			const loadSessionsFromFilesystem = () => {
 				try {
 					if (!fs.existsSync(agentsDir)) return;
-					const agentDirs = fs.readdirSync(agentsDir, { withFileTypes: true })
-						.filter(d => d.isDirectory());
-					
+					const agentDirs = fs
+						.readdirSync(agentsDir, { withFileTypes: true })
+						.filter((d) => d.isDirectory());
+
 					let loadedCount = 0;
 					for (const agentDir of agentDirs) {
-						const sessionsFile = path.join(agentsDir, agentDir.name, "sessions", "sessions.json");
+						const sessionsFile = path.join(
+							agentsDir,
+							agentDir.name,
+							"sessions",
+							"sessions.json",
+						);
 						if (fs.existsSync(sessionsFile)) {
 							const content = fs.readFileSync(sessionsFile, "utf-8");
 							const sessionsObj = JSON.parse(content);
@@ -450,7 +590,7 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 								if (s.sessionId) {
 									collections?.upsertSession({
 										key: key,
-										agentId: s.agentId as string || agentDir.name,
+										agentId: (s.agentId as string) || agentDir.name,
 										platform: (s.platform as string) || "unknown",
 										recipient: (s.recipient as string) || "",
 										isGroup: (s.isGroup as boolean) || false,
@@ -463,9 +603,13 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 							}
 						}
 					}
-					logger.info(`${LOG_PREFIX}: loaded ${loadedCount} sessions from filesystem`);
+					logger.info(
+						`${LOG_PREFIX}: loaded ${loadedCount} sessions from filesystem`,
+					);
 				} catch (err) {
-					logger.warn(`${LOG_PREFIX}: failed to load sessions from filesystem: ${err}`);
+					logger.warn(
+						`${LOG_PREFIX}: failed to load sessions from filesystem: ${err}`,
+					);
 				}
 			};
 			loadSessionsFromFilesystem();
@@ -485,7 +629,11 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 			// Hydrate from persisted data
 			const hydrated = collectionsPersistence.hydrate();
 			if (hydrated.sessions.length > 0 || hydrated.actions.length > 0) {
-				collections.hydrate(hydrated.sessions, hydrated.actions, hydrated.execEvents);
+				collections.hydrate(
+					hydrated.sessions,
+					hydrated.actions,
+					hydrated.execEvents,
+				);
 				logger.info(
 					`${LOG_PREFIX}: hydrated ${hydrated.sessions.length} sessions, ${hydrated.actions.length} actions, ${hydrated.execEvents.length} exec events`,
 				);
@@ -506,11 +654,26 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 				},
 			});
 
+			// ── runId → real session key map ─────────────────────────────────
+			// Chat events always carry the real sessionKey (agent:agentId:platform:recipient).
+			// Agent events often omit it, falling back to stream name ("assistant", "lifecycle").
+			// We build this map from chat events and use it to normalize agent events.
+			const runSessionMap = new Map<string, string>();
+			const isRealSessionKey = (k: string) =>
+				k.split(":")[0] === "agent" && k.split(":").length >= 3;
+
 			// ── Bridge 4: Gateway WebSocket → engine + collections ─────────────────
 			// Connects to gateway WS for real-time session/action/exec tracking.
 			// Falls back gracefully if not paired (NOT_PAIRED error is handled).
 			// Use token from config or fall back to empty (will show pairing warning)
-			const gatewayToken = "e89bb0d63f97b897e32039df32bbb53f93d5b9a8e4d4277d";
+			// Bug 4 fix: read token from config instead of hardcoding
+			const _gatewayCfg = (api.config as Record<string, unknown>).gateway as
+				| Record<string, unknown>
+				| undefined;
+			const _gatewayAuth = _gatewayCfg?.auth as
+				| Record<string, unknown>
+				| undefined;
+			const gatewayToken = (_gatewayAuth?.token as string) || "";
 			if (gatewayToken) {
 				gatewayClient = new GatewayClient({
 					token: gatewayToken,
@@ -522,8 +685,13 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 
 				gatewayClient.on("error", (err: Error) => {
 					// Ignore pairing errors - plugin works without full gateway client
-					if (err.message.includes("NOT_PAIRED") || err.message.includes("device identity")) {
-						logger.warn(`${LOG_PREFIX}: gateway pairing not configured (optional)`);
+					if (
+						err.message.includes("NOT_PAIRED") ||
+						err.message.includes("device identity")
+					) {
+						logger.warn(
+							`${LOG_PREFIX}: gateway pairing not configured (optional)`,
+						);
 					} else {
 						logger.warn(`${LOG_PREFIX}: gateway client error: ${err.message}`);
 					}
@@ -534,19 +702,85 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 				});
 
 				// Wire gateway events to collections
-				const gatewayEventNames = [
-					"chat", "agent", "exec.started", "exec.output", "exec.completed",
-					"health", "tick",
-				];
+				const gatewayEventNames = ["chat", "agent", "health", "tick"];
 				for (const eventName of gatewayEventNames) {
 					gatewayClient.on(eventName, (payload: unknown) => {
-						logger.info(`${LOG_PREFIX}: received gateway event: ${eventName}`);
+						// Record for test endpoint
+						recordGatewayEvent(eventName, payload);
+
 						if (collections) {
 							const parsed = parseGatewayEvent(eventName, payload);
 							if (parsed) {
-								logger.info(`${LOG_PREFIX}: parsed ${eventName}: session=${!!parsed.session}, action=${!!parsed.action}, exec=${!!parsed.execEvent}`);
 								if (parsed.session) collections.upsertSession(parsed.session);
-								if (parsed.action) collections.addAction(parsed.action);
+								if (parsed.action) {
+									// Register real keys in runSessionMap
+									if (
+										parsed.action.sessionKey &&
+										!parsed.action.sessionKey.includes("lifecycle") &&
+										isRealSessionKey(parsed.action.sessionKey)
+									) {
+										runSessionMap.set(
+											parsed.action.runId,
+											parsed.action.sessionKey,
+										);
+									}
+									// Route to real key via runId; fall back to original key — never filter (frontend handles grouping)
+									const realKey = isRealSessionKey(parsed.action.sessionKey)
+										? parsed.action.sessionKey
+										: runSessionMap.get(parsed.action.runId) ||
+											parsed.action.sessionKey;
+									collections.addAction(parsed.action);
+									// Forward parsed WS actions to the live agent monitor SSE stream
+									const action = parsed.action;
+									const sseType =
+										action.eventType === "chat" ? "chat" : "agent";
+									const sseData: Record<string, unknown> = {
+										ts: action.timestamp,
+										sessionKey: realKey,
+										runId: action.runId,
+									};
+									if (action.eventType === "chat") {
+										const state =
+											action.type === "complete"
+												? "final"
+												: action.type === "streaming"
+													? "delta"
+													: action.type === "error"
+														? "error"
+														: "final";
+										sseData.data = {
+											state,
+											content: action.content,
+											inputTokens: action.inputTokens,
+											outputTokens: action.outputTokens,
+											stopReason: action.stopReason,
+										};
+									} else {
+										const phase =
+											action.type === "start"
+												? "start"
+												: action.type === "complete"
+													? "end"
+													: action.type === "error"
+														? "error"
+														: action.type === "tool_call"
+															? "tool"
+															: action.type === "streaming"
+																? "streaming"
+																: action.type;
+										sseData.data = {
+											phase,
+											content: action.content,
+											toolName: action.toolName,
+											toolArgs: action.toolArgs,
+											durationMs:
+												action.endedAt && action.startedAt
+													? action.endedAt - action.startedAt
+													: undefined,
+										};
+									}
+									emitAgentMonitorEvent({ type: sseType, data: sseData });
+								}
 								if (parsed.execEvent) {
 									collections.addExecEvent(parsed.execEvent);
 									collectionsPersistence?.queueExecEvent(parsed.execEvent);
@@ -557,30 +791,8 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 				}
 
 				gatewayClient.start();
-
-				// ── Periodic Cost Sync via RPC ───────────────────────────────────
-				const syncCostsFromGateway = async () => {
-					if (!gatewayClient?.isReady() || !collections) return;
-
-					try {
-						const result = await gatewayClient.request<CostUsageSummary>(
-							"usage.cost",
-							{ period: "day" },
-						);
-						if (result && result.bySession) {
-							collections.syncAggregatedCosts(result);
-						}
-					} catch (e) {
-						// Log warning but continue - cost sync is optional enhancement
-						logger.warn(`${LOG_PREFIX}: cost sync failed: ${(e as Error).message}`);
-					}
-				};
-
-				// Initial sync after connection
-				setTimeout(syncCostsFromGateway, 5000);
-
-				// Periodic sync every minute
-				costSyncInterval = setInterval(syncCostsFromGateway, COST_SYNC_INTERVAL_MS);
+				// Bug 1 fix: cost sync via usage.cost RPC removed
+				// Gateway denies operator.read scope; cost flows via model.usage diagnostic events
 			}
 
 			const targetDesc = target
@@ -593,10 +805,6 @@ function createMonitorService(api: OpenClawPluginApi): OpenClawPluginService {
 
 		stop() {
 			closeDashboardConnections();
-			if (costSyncInterval) {
-				clearInterval(costSyncInterval);
-				costSyncInterval = null;
-			}
 			if (sessionSyncInterval) {
 				clearInterval(sessionSyncInterval);
 				sessionSyncInterval = null;
@@ -646,7 +854,12 @@ const plugin = {
 		}
 
 		// Register dashboard HTTP routes under /openalerts*
-		api.registerHttpHandler(createDashboardHandler(() => engine, () => collections));
+		api.registerHttpHandler(
+			createDashboardHandler(
+				() => engine,
+				() => collections,
+			),
+		);
 	},
 };
 

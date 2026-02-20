@@ -9,8 +9,6 @@ import type {
 import { DEFAULTS } from "../core/index.js";
 import { getDashboardHtml } from "./dashboard-html.js";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
 type HttpHandler = (
 	req: IncomingMessage,
 	res: ServerResponse,
@@ -22,12 +20,47 @@ type SSEConnection = {
 	logTailer: ReturnType<typeof setInterval>;
 };
 
-// ─── SSE connection tracking ─────────────────────────────────────────────────
-
 const sseConnections = new Set<SSEConnection>();
 
-/** Close all active SSE connections. Call on engine stop. */
+// ── Agent monitor live stream ───────────────────────────────────────────────
+
+type AgentMonitorEvent = { type: string; data: unknown };
+type MonitorConnection = { res: ServerResponse; heartbeat: ReturnType<typeof setInterval> };
+const monitorListeners = new Set<(e: AgentMonitorEvent) => void>();
+const monitorConnections = new Set<MonitorConnection>();
+
+// Ring buffer — last 150 agent monitor events for history replay
+const agentMonitorBuffer: AgentMonitorEvent[] = [];
+const AGENT_MONITOR_BUF_SIZE = 150;
+
+export function emitAgentMonitorEvent(event: AgentMonitorEvent): void {
+	// Store in ring buffer
+	agentMonitorBuffer.push(event);
+	if (agentMonitorBuffer.length > AGENT_MONITOR_BUF_SIZE) agentMonitorBuffer.shift();
+	for (const fn of monitorListeners) {
+		try { fn(event); } catch { /* ignore */ }
+	}
+}
+
+// ── Gateway event recorder ──────────────────────────────────────────────────
+
+const recentGatewayEvents: Array<{ eventName: string; payload: unknown; ts: number }> = [];
+
+export function recordGatewayEvent(eventName: string, payload: unknown): void {
+	recentGatewayEvents.unshift({ eventName, payload, ts: Date.now() });
+	while (recentGatewayEvents.length > 10) {
+		recentGatewayEvents.pop();
+	}
+}
+
 export function closeDashboardConnections(): void {
+	for (const conn of monitorConnections) {
+		clearInterval(conn.heartbeat);
+		try { conn.res.end(); } catch { /* ignore */ }
+	}
+	monitorConnections.clear();
+	monitorListeners.clear();
+
 	for (const conn of sseConnections) {
 		clearInterval(conn.heartbeat);
 		clearInterval(conn.logTailer);
@@ -258,6 +291,7 @@ function createLogTailer(res: ServerResponse): ReturnType<typeof setInterval> {
 
 export function createDashboardHandler(
 	getEngine: () => OpenAlertsEngine | null,
+	getCollections: () => unknown,
 ): HttpHandler {
 	return async (
 		req: IncomingMessage,
@@ -390,6 +424,36 @@ export function createDashboardHandler(
 			return true;
 		}
 
+		// ── GET /openalerts/collections → Sessions, actions, execs from CollectionManager ────
+		if (url === "/openalerts/collections" && req.method === "GET") {
+			const collections = getCollections() as {
+				getActiveSessions: (windowMs?: number) => unknown[];
+				getSessions: () => unknown[];
+				getActions: () => unknown[];
+				getExecs: () => unknown[];
+				getStats: () => unknown;
+			} | null;
+			if (!collections) {
+				res.writeHead(503, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ error: "Collections not available" }));
+				return true;
+			}
+
+			// getActiveSessions filters out stale idle sessions (>2h inactive) from filesystem hydration
+			const sessions = collections.getActiveSessions();
+			const actions = collections.getActions();
+			const execs = collections.getExecs();
+			const stats = collections.getStats();
+
+			res.writeHead(200, {
+				"Content-Type": "application/json",
+				"Cache-Control": "no-cache",
+				"Access-Control-Allow-Origin": "*",
+			});
+			res.end(JSON.stringify({ sessions, actions, execs, stats }));
+			return true;
+		}
+
 		// ── GET /openalerts/logs → OpenClaw log entries (for Logs tab) ────
 		if (url.startsWith("/openalerts/logs") && req.method === "GET") {
 			const urlObj = new URL(url, "http://localhost");
@@ -412,6 +476,60 @@ export function createDashboardHandler(
 					logFile: getOpenClawLogPath(),
 				}),
 			);
+			return true;
+		}
+
+		// ── GET /openalerts/agent-monitor/stream → Live agent activity SSE ────
+		// Receives events from plugin hooks (before_agent_start, agent_end, after_tool_call, message_received)
+		if (url === "/openalerts/agent-monitor/stream" && req.method === "GET") {
+			res.writeHead(200, {
+				"Content-Type": "text/event-stream",
+				"Cache-Control": "no-cache",
+				Connection: "keep-alive",
+				"Access-Control-Allow-Origin": "*",
+			});
+			res.flushHeaders();
+			res.write(`:ok\n\n`);
+
+			// Replay buffered events so client sees full current session history
+			if (agentMonitorBuffer.length > 0) {
+				try {
+					res.write(`event: history\ndata: ${JSON.stringify(agentMonitorBuffer)}\n\n`);
+				} catch { /* closed before flush */ }
+			}
+
+			const listener = (event: AgentMonitorEvent) => {
+				try { res.write(`event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`); }
+				catch { /* closed */ }
+			};
+			monitorListeners.add(listener);
+
+			const heartbeat = setInterval(() => {
+				try { res.write(`:heartbeat\n\n`); } catch { /* closed */ }
+			}, 15_000);
+
+			const conn: MonitorConnection = { res, heartbeat };
+			monitorConnections.add(conn);
+
+			req.on("close", () => {
+				clearInterval(heartbeat);
+				monitorListeners.delete(listener);
+				monitorConnections.delete(conn);
+			});
+			return true;
+		}
+
+		// ── GET /openalerts/test/events → Last 10 gateway events ────
+		if (url === "/openalerts/test/events" && req.method === "GET") {
+			res.writeHead(200, {
+				"Content-Type": "application/json",
+				"Cache-Control": "no-cache",
+				"Access-Control-Allow-Origin": "*",
+			});
+			res.end(JSON.stringify({
+				count: recentGatewayEvents.length,
+				events: recentGatewayEvents,
+			}));
 			return true;
 		}
 

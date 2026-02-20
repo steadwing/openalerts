@@ -194,6 +194,28 @@ export function getDashboardHtml(): string {
   .log-detail .ld-grid .lk{color:#8b949e;text-align:right}
   .log-detail .ld-grid .lv{color:#c9d1d9;word-break:break-all}
   .log-detail .ld-file{color:#484f58;font-size:10px;margin-top:3px}
+
+  /* ── Graph View ──────────────────── */
+  .view-toggle{display:flex;gap:2px;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:2px;font-size:11px}
+  .view-toggle button{background:transparent;border:none;color:#8b949e;padding:3px 10px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:11px}
+  .view-toggle button:hover{color:#c9d1d9;background:#21262d}
+  .view-toggle button.active{background:#21262d;color:#58a6ff}
+  #graphView{display:none;flex:1;overflow:auto;position:relative;background:#0d1117}
+  #graphView.active{display:block}
+  .graph-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+  .graph-node{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#161b22;border:2px solid #30363d;border-radius:8px;padding:8px 12px;min-width:60px;cursor:pointer;transition:all 0.15s}
+  .graph-node:hover{border-color:#58a6ff;background:#1c2129}
+  .graph-node.session{border-color:#58a6ff;background:#0d1a2d}
+  .graph-node.action{border-radius:6px;padding:6px 10px}
+  .graph-node.tool{border-color:#bc8cff;background:#1a0d2d;border-radius:4px;padding:4px 8px;font-size:11px}
+  .graph-node.exec{border-color:#d29922;background:#2d1a0d;border-radius:4px;padding:4px 8px;font-size:11px}
+  .node-icon{font-size:20px;margin-bottom:2px}
+  .node-label{font-size:11px;color:#c9d1d9;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+  .node-status{font-size:9px;color:#8b949e;margin-top:2px}
+  .node-status.running{color:#58a6ff}
+  .node-status.completed{color:#3fb950}
+  .node-status.error{color:#f85149}
+ 
 </style>
 </head>
 <body>
@@ -218,7 +240,10 @@ export function getDashboardHtml(): string {
     <div class="tab-content active" id="tab-activity">
       <div class="activity-panels">
         <div class="panel">
-          <div class="panel-header"><span>Live Timeline</span><span style="color:#484f58;font-weight:400" id="evCnt">0</span></div>
+          <div class="panel-header">
+            <span>Live Timeline</span>
+            <span style="color:#484f58;font-weight:400" id="evCnt">0</span>
+          </div>
           <div class="scroll" id="evList"><div class="empty-msg" id="emptyMsg">Waiting for events... send a message to your bot.</div></div>
         </div>
         <div class="panel">
@@ -626,8 +651,13 @@ export function getDashboardHtml(): string {
       evSrc.addEventListener('history',function(e){try{var evs=JSON.parse(e.data);for(var i=0;i<evs.length;i++)addEvent(evs[i])}catch(_){}});
       evSrc.addEventListener('oclog',function(e){try{addLogEntry(JSON.parse(e.data))}catch(_){}});
       evSrc.onopen=function(){$('sDot').className='dot live';$('sConn').textContent='live'};
-      evSrc.onerror=function(e){$('sDot').className='dot dead';$('sConn').textContent='err:'+evSrc.readyState};
-    }catch(e){$('sConn').textContent='SSE fail:'+e.message}
+      evSrc.onerror=function(e){
+        $('sDot').className='dot dead';
+        $('sConn').textContent='reconnecting...';
+        evSrc.close();
+        setTimeout(connectSSE,3000);
+      };
+    }catch(e){$('sConn').textContent='SSE fail:'+e.message;setTimeout(connectSSE,3000);}
   }
 
   // ─── State polling ──────────────────────

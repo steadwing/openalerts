@@ -111,8 +111,15 @@ async def _run_serve(args: argparse.Namespace) -> None:
 
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, stop_event.set)
+    if sys.platform == "win32":
+        # Windows: add_signal_handler() is not supported; use signal.signal() instead
+        def _win_stop(signum, frame):
+            loop.call_soon_threadsafe(stop_event.set)
+        signal.signal(signal.SIGINT, _win_stop)
+        signal.signal(signal.SIGTERM, _win_stop)
+    else:
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, stop_event.set)
 
     print(f"OpenAlerts dashboard running at http://localhost:{args.port}/openalerts")
     print(f"Tailing events from {events_path}")

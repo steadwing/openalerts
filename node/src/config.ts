@@ -30,6 +30,19 @@ export interface ServerConfig {
   host: string;
 }
 
+export interface OtlpConfig {
+  /** OTLP endpoint base URL — e.g. https://otlp-gateway-prod-us-east-0.grafana.net/otlp */
+  endpoint: string;
+  /** Auth + custom headers — e.g. { "Authorization": "Basic <base64>" } */
+  headers?: Record<string, string>;
+  /** Metrics push interval in seconds (default: 30) */
+  intervalSeconds?: number;
+  /** Export metrics (default: true) */
+  metrics?: boolean;
+  /** Export alert logs (default: true) */
+  logs?: boolean;
+}
+
 export interface AppConfig {
   /** OpenClaw gateway WebSocket URL */
   gatewayUrl: string;
@@ -49,6 +62,8 @@ export interface AppConfig {
   quiet?: boolean;
   /** Hourly alert cap (default 10) */
   maxAlertsPerHour?: number;
+  /** OTLP export config — disabled if omitted */
+  otlp?: OtlpConfig;
 }
 
 const DEFAULTS: AppConfig = {

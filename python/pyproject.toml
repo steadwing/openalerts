@@ -29,6 +29,14 @@ openalerts = "openalerts.cli:main"
 requires = ["setuptools>=75.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.uv]
+conflicts = [
+    [
+        { extra = "crewai" },
+        { extra = "nanobot" },
+    ],
+]
+
 [tool.setuptools.package-dir]
 openalerts = "src"
 

@@ -34,6 +34,7 @@ export class OpenAlertsEngine {
   private running = false;
   private eventRing: OpenAlertsEvent[] = [];
   private static readonly RING_MAX = 500;
+  private alertCallbacks: ((alert: AlertEvent) => void)[] = [];
 
   constructor(options: OpenAlertsInitOptions & { db?: DatabaseSync | null }) {
     this.config = options.config;
@@ -117,6 +118,11 @@ export class OpenAlertsEngine {
 
   get isRunning(): boolean { return this.running; }
 
+  /** Register a callback that fires every time an alert is dispatched. */
+  onAlert(cb: (alert: AlertEvent) => void): void {
+    this.alertCallbacks.push(cb);
+  }
+
   getRecentEvents(limit = 100): StoredEvent[] { return readRecentEvents(this.stateDir, limit); }
   getRecentLiveEvents(limit = 200): OpenAlertsEvent[] { return this.eventRing.slice(-limit); }
 
@@ -181,5 +187,6 @@ export class OpenAlertsEngine {
     }
 
     this.logger.info(`${this.logPrefix}: [${alert.severity}] ${alert.title}`);
+    for (const cb of this.alertCallbacks) { try { cb(alert); } catch { /* ignore */ } }
   }
 }

@@ -1,7 +1,5 @@
 # OpenAlerts – Architecture Handover
 
-Written by Dev Khant, October 2026. Based on `main` at commit `faa1ddf`.
-
 ## 1. What it is
 
 OpenAlerts watches AI agents while they run. When something goes wrong (LLM errors, tool errors, a stuck agent, high cost), it sends an alert and shows it on a live dashboard. Everything runs on the user's own machine. There is no cloud part.
@@ -130,12 +128,6 @@ Smaller issues:
 - Node config accepts `slack` and `discord` channel types but silently ignores them.
 - `make build` fails because the `dashboard` workspace is empty. `make test` fails because pytest finds no tests.
 
-## 8. Out-of-date docs
-
-- `GUIDE.md` describes the old design, when OpenAlerts ran as a plugin inside OpenClaw (platform sync, chat commands). Treat it as history.
-- Root `README.md`: the "LLM-Enriched Alerts" and "Commands" (`/health`, `/alerts`) sections describe features that were removed along with the plugin.
-- `node/README.md` and `python/README.md` are mostly correct.
-
 ## 9. How to make common changes
 
 - **New rule (Node):** add it to `ALL_RULES` in `node/src/core/rules.ts`. Make sure something actually sends the event type the rule needs. Then update the copied rule lists in `mcp/tools.ts` and `mcp/resources.ts`.
@@ -144,14 +136,3 @@ Smaller issues:
 - **New framework (Python):** subclass `BaseAdapter`, register it in `_ADAPTER_REGISTRY` in `__init__.py`, and add an optional extra in `pyproject.toml`. If the framework has its own event system, use that instead of patching private methods.
 - **New gateway event (Node):** add the event name to `GW_EVENTS` in `cli.ts` and add a branch for it in `translateGatewayEvent()`.
 
-## 10. History and people
-
-- February 2026: OpenAlerts started as a plugin that ran inside OpenClaw. The Python package was added on 20 Feb.
-- 25 Feb 2026: the plugin was deleted and replaced by the standalone daemon with SQLite and a new dashboard (commit `63a04e7`).
-- March 2026: the nanobot and CrewAI adapters, the MCP server, and npm 0.2.8. Since then there have only been security and dependency updates.
-- Nilay (GitHub `NILAY1556`) wrote most of the Node daemon, the dashboard and the MCP server. Dev Khant wrote the Python package and the adapters. `yash194` added the cost rules.
-
-## 11. Handover checklist
-
-- Give npm (`@steadwing`) and PyPI (`openalerts`) owner access to someone who is staying.
-- Check that the `NPM_TOKEN` and `PYPI_TOKEN` GitHub secrets still work.
